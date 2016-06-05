@@ -145,7 +145,8 @@ map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
 glm::mat4 view_matrix()
 {
     // yaw = 0 -> looking up the positive Y-axis
-    float angle = view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
+    // yaw is negative because... fudge factor
+    float angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
     struct point c = hex_to_pixel(view.center);
     glm::vec3 eye(
         c.x - view.distance * cos(angle),
@@ -267,9 +268,6 @@ void resize()
 void move(int n)
 {
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
-    struct point p = hex_to_pixel(view.center);
-    printf("q: %d, r: %d -> x: %g, y: %g\n",
-            view.center.q, view.center.r, p.x, p.y);
 }
 
 void events()
@@ -302,6 +300,8 @@ void events()
             case SDL_SCANCODE_S: move(3); break;
             case SDL_SCANCODE_A: move(4); break;
             case SDL_SCANCODE_Q: move(5); break;
+
+            case SDL_SCANCODE_R: view.yaw++; break;
             default: break;
             }
             break;
