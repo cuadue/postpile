@@ -23,6 +23,8 @@
 using namespace std;
 using namespace glm;
 
+mat4 proj_matrix;
+vec2 mouse;
 wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
@@ -33,18 +35,19 @@ extern "C" {
 #include "osn.h"
 #include "hex.h"
 #include "tiles.h"
+}
 
 int bail = 0;
 SDL_Window *window;
 struct {
     float yaw, height, distance;
-    struct hex_coord center;
+    struct point center;
 } view = {
     .yaw = 0,
     .height = 5,
     .distance = 5,
-    .center.q = 0,
-    .center.r = 0,
+    .center.x = 0,
+    .center.y = 0,
 };
 
 void libs_print_err() {
@@ -67,7 +70,6 @@ static SDL_Window *make_window()
     return SDL_CreateWindow("postpile",
                 SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-}
 }
 
 // low elevation -> high elevation
@@ -141,7 +143,7 @@ map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
 
 glm::mat4 view_matrix()
 {
-    struct point c = hex_to_pixel(view.center);
+    struct point c = hex_to_pixel(pixel_to_hex(view.center.x, view.center.y));
     glm::vec3 eye(
         c.x + view.distance * cos(view.yaw),
         c.y + view.distance * sin(view.yaw),
@@ -152,7 +154,7 @@ glm::mat4 view_matrix()
     return glm::lookAt(eye, center, vec3(0, 0, 1));
 }
 
-mat4 hex_model_matrix(int q, int r, int z)
+mat4 hex_model_matrix(int q, int r, float z)
 {
     struct hex_coord coord = { .q = q, .r = r };
     struct point center = hex_to_pixel(coord);
@@ -166,6 +168,27 @@ char float_index(const string &coll, float x)
     return coll.at(CLAMP(x * size, 0, size-1));
 }
 
+struct hex_coord hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
+{
+    // Define two points in screen space
+    glm::vec4 screen_a(mouse.x, mouse.y, -1, 1);
+    glm::vec4 screen_b(mouse.x, mouse.y, 1, 1);
+
+    // Transform them into object space
+    glm::vec4 a(glm::inverse(mvp) * screen_a);
+    a /= a.w;
+    glm::vec4 b(glm::inverse(mvp) * screen_b);
+    b /= b.w;
+
+    // Draw a line through the two points and intersect with the Z plane
+    double t = a.z / (a.z - b.z);
+    double x = a.x + t * (b.x - a.x);
+    double y = a.y + t * (b.y - a.y);
+
+    struct hex_coord ret = pixel_to_hex(x, y);
+    return ret;
+}
+
 void draw(const tile_generator &tile_gen)
 {
     struct drawitem {
@@ -176,26 +199,33 @@ void draw(const tile_generator &tile_gen)
     vector<drawitem> drawlist;
     mat4 vm = view_matrix();
 
-    struct hex_coord mouse_hex = {0, 0};
+    int window_h = 0, window_w = 0;
+    SDL_GetWindowSize(window, &window_w, &window_h);
+    glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
+                           2 * (window_h-mouse.y) / (float)window_h - 1);
+    mat4 view_proj = proj_matrix * vm;
+    struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
 
-    for (int r = -30; r < 30; r++) {
-        for (int q = -30; q < 30; q++) {
-            if (r != mouse_hex.r || q != mouse_hex.q) {
-                struct hex_coord coord = { .q = q, .r = r };
-                struct point center = hex_to_pixel(coord);
+    for (int r = -3; r < 3; r++) {
+        for (int q = -3; q < 3; q++) {
+            struct hex_coord coord = {
+                .q = q + mouse_hex.q,
+                .r = r + mouse_hex.r
+            };
+            struct point center = hex_to_pixel(coord);
 
-                drawitem item;
-                item.elevation = tile_value(&tile_gen, center.x, center.y);
-                mat4 mm = hex_model_matrix(q, r, item.elevation);
-                item.modelview_matrix = vm * mm;
+            drawitem item;
+            item.elevation = tile_value(&tile_gen, center.x, center.y);
+            mat4 mm = hex_model_matrix(coord.q, coord.r, item.elevation-0.5);
+            item.modelview_matrix = vm * mm;
 
-                drawlist.push_back(item);
-            }
+            drawlist.push_back(item);
         }
     }
 
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     glMatrixMode(GL_MODELVIEW);
 
     gl2_setup_mesh_data(post_mesh);
@@ -225,10 +255,43 @@ void resize()
     glMatrixMode(GL_PROJECTION);
     float fov = M_PI * 50.0 / 180.8;
     float aspect = w / (float)h;
-    mat4 proj = perspective<float>(fov, aspect, 1, 1e2);
-    glLoadMatrixf(value_ptr(proj));
+    proj_matrix = perspective<float>(fov, aspect, 1, 1e2);
+    glLoadMatrixf(value_ptr(proj_matrix));
     check_gl_error();
 }
+
+void forward(float x=1.0)
+{
+    view.center.x += -0.1f * x * cos(view.yaw);
+    view.center.y += -0.1f * x * sin(view.yaw);
+}
+
+void left(float x=1.0)
+{
+    view.center.x += -0.1f * x * cos(view.yaw + M_PI/2.0);
+    view.center.y += -0.1f * x * sin(view.yaw + M_PI/2.0);
+}
+
+void zoom_in(float x=1.0)
+{
+    view.distance = CLAMP(view.distance + 0.1 * x, 1, 10);
+}
+
+void up(float x=1.0)
+{
+    view.height += 0.1*x;
+}
+
+void backward() { forward(-1); }
+void right() { left(-1); }
+void zoom_out() { zoom_in(-1); }
+void down() { up(-1); }
+
+void rotate(float dir)
+{
+    view.yaw += 0.05f * dir;
+}
+
 
 void events()
 {
@@ -246,8 +309,29 @@ void events()
                 break;
             }
             break;
+
+        case SDL_MOUSEMOTION:
+            mouse.x = e.motion.x;
+            mouse.y = e.motion.y;
+            break;
         }
     }
+
+    const uint8_t *keystate = SDL_GetKeyboardState(NULL);
+
+    if (keystate[SDL_SCANCODE_W]) forward();
+    if (keystate[SDL_SCANCODE_S]) backward();
+    if (keystate[SDL_SCANCODE_A]) left();
+    if (keystate[SDL_SCANCODE_D]) right();
+
+    if (keystate[SDL_SCANCODE_Q]) rotate(1);
+    if (keystate[SDL_SCANCODE_E]) rotate(-1);
+
+    if (keystate[SDL_SCANCODE_R]) zoom_in();
+    if (keystate[SDL_SCANCODE_F]) zoom_out();
+
+    if (keystate[SDL_SCANCODE_T]) up();
+    if (keystate[SDL_SCANCODE_G]) down();
 }
 
 
