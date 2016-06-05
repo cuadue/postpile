@@ -257,6 +257,8 @@ int Parse::parse_smoothing_group(const char *line)
 {
     if (1 == sscanf(line, "s %d", &smoothing_group)) {
     }
+    else if (line[0] == 's'  && !strcmp(next_token(line), "off")) {
+    }
     else {
         return 0;
     }

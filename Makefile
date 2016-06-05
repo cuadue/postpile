@@ -18,19 +18,26 @@ LDFLAGS += -lm
 LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
 
 
-OBJS = postpile.oo wavefront.oo wavefront_mtl.oo gl2.oo hex.o
+OBJS = postpile.o wavefront.o wavefront_mtl.o gl2.o hex.o
 OBJS += tiles.o osn.o
-.PHONY: postpile.hpp
 
-%.oo: %.cpp %.hpp
+tex:
+	mkdir -p $@
+	cd img; for f in ./* \
+	;do convert "$$f" -resize 256x256 -sigmoidal-contrast '4,50%' "../$@/$$f" \
+	;done
+
+postpile.o: postpile.cpp
+%.o: %.cpp %.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-postpile: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS) 
+postpile: $(OBJS) tex
+	$(CXX) -o $@ $(OBJS) $(LDFLAGS) 
 
 clean:
 	rm -f $(OBJS)
 	rm -f postpile
+	rm -rf tex

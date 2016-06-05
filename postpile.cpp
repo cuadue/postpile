@@ -12,6 +12,14 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+extern "C" {
+#include <fcntl.h>
+#include <unistd.h>
+#include "osn.h"
+#include "hex.h"
+#include "tiles.h"
+}
+
 #include "wavefront.hpp"
 #include "gl2.hpp"
 
@@ -29,25 +37,18 @@ wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
 
-extern "C" {
-#include <fcntl.h>
-#include <unistd.h>
-#include "osn.h"
-#include "hex.h"
-#include "tiles.h"
-}
-
 int bail = 0;
 SDL_Window *window;
 struct {
-    float yaw, height, distance;
-    struct point center;
+    int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
+    float height, distance;
+    struct hex_coord center;
 } view = {
     .yaw = 0,
     .height = 5,
     .distance = 5,
-    .center.x = 0,
-    .center.y = 0,
+    .center.q = 0,
+    .center.r = 0,
 };
 
 void libs_print_err() {
@@ -127,7 +128,7 @@ int popd(int fd)
 
 map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
 {
-    int olddir = pushd("img");
+    int olddir = pushd("tex");
 
     map<char, gl2_material> ret;
     for (const auto &p : texfiles) {
@@ -143,10 +144,12 @@ map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
 
 glm::mat4 view_matrix()
 {
-    struct point c = hex_to_pixel(pixel_to_hex(view.center.x, view.center.y));
+    // yaw = 0 -> looking up the positive Y-axis
+    float angle = view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
+    struct point c = hex_to_pixel(view.center);
     glm::vec3 eye(
-        c.x + view.distance * cos(view.yaw),
-        c.y + view.distance * sin(view.yaw),
+        c.x - view.distance * cos(angle),
+        c.y - view.distance * sin(angle),
         view.height);
 
     glm::vec3 center(c.x, c.y, 0);
@@ -205,12 +208,13 @@ void draw(const tile_generator &tile_gen)
                            2 * (window_h-mouse.y) / (float)window_h - 1);
     mat4 view_proj = proj_matrix * vm;
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
+    (void) mouse_hex;
 
-    for (int r = -3; r < 3; r++) {
-        for (int q = -3; q < 3; q++) {
+    for (int r = -20; r < 20; r++) {
+        for (int q = -20; q < 20; q++) {
             struct hex_coord coord = {
-                .q = q + mouse_hex.q,
-                .r = r + mouse_hex.r
+                .q = q + view.center.q,
+                .r = r + view.center.r
             };
             struct point center = hex_to_pixel(coord);
 
@@ -260,38 +264,13 @@ void resize()
     check_gl_error();
 }
 
-void forward(float x=1.0)
+void move(int n)
 {
-    view.center.x += -0.1f * x * cos(view.yaw);
-    view.center.y += -0.1f * x * sin(view.yaw);
+    view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
+    struct point p = hex_to_pixel(view.center);
+    printf("q: %d, r: %d -> x: %g, y: %g\n",
+            view.center.q, view.center.r, p.x, p.y);
 }
-
-void left(float x=1.0)
-{
-    view.center.x += -0.1f * x * cos(view.yaw + M_PI/2.0);
-    view.center.y += -0.1f * x * sin(view.yaw + M_PI/2.0);
-}
-
-void zoom_in(float x=1.0)
-{
-    view.distance = CLAMP(view.distance + 0.1 * x, 1, 10);
-}
-
-void up(float x=1.0)
-{
-    view.height += 0.1*x;
-}
-
-void backward() { forward(-1); }
-void right() { left(-1); }
-void zoom_out() { zoom_in(-1); }
-void down() { up(-1); }
-
-void rotate(float dir)
-{
-    view.yaw += 0.05f * dir;
-}
-
 
 void events()
 {
@@ -314,24 +293,30 @@ void events()
             mouse.x = e.motion.x;
             mouse.y = e.motion.y;
             break;
+
+        case SDL_KEYDOWN:
+            switch (e.key.keysym.scancode) {
+            case SDL_SCANCODE_W: move(0); break;
+            case SDL_SCANCODE_E: move(1); break;
+            case SDL_SCANCODE_D: move(2); break;
+            case SDL_SCANCODE_S: move(3); break;
+            case SDL_SCANCODE_A: move(4); break;
+            case SDL_SCANCODE_Q: move(5); break;
+            default: break;
+            }
+            break;
         }
     }
 
+    /*
     const uint8_t *keystate = SDL_GetKeyboardState(NULL);
-
-    if (keystate[SDL_SCANCODE_W]) forward();
-    if (keystate[SDL_SCANCODE_S]) backward();
-    if (keystate[SDL_SCANCODE_A]) left();
-    if (keystate[SDL_SCANCODE_D]) right();
-
-    if (keystate[SDL_SCANCODE_Q]) rotate(1);
-    if (keystate[SDL_SCANCODE_E]) rotate(-1);
 
     if (keystate[SDL_SCANCODE_R]) zoom_in();
     if (keystate[SDL_SCANCODE_F]) zoom_out();
 
     if (keystate[SDL_SCANCODE_T]) up();
     if (keystate[SDL_SCANCODE_G]) down();
+    */
 }
 
 

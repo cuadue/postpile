@@ -14,22 +14,23 @@
 
 struct cube_coord { int x, y, z; };
 
-/* Hex neighbors are sorted by corner number. This is the lazy way to do it.
- * Corners are labeled like this:
+/* Hex neighbors are sorted by edge. On a clock face, heading index 0 is noon, 
+ * 1 is 2 o'clock, 2 is 4 o'clock, etc
  *    4 ___ 5
  *   3 /   \ 0
  *     \___/
  *    2     1
  */
 const struct hex_coord hex_neighbors[] = {
-    {1, 0},  /* between corners 0 and 1 */
-    {0, 1},  /* between corners 1 and 2 */
-    {-1, 1}, /* between corners 2 and 3 */
-    {-1, 0}, /* between corners 3 and 4 */
-    {0, -1}, /* between corners 4 and 5 */
-    {1, -1}  /* between corners 5 and 6 */
+    {0, 1},
+    {1, 0},
+    {1, -1},
+    {0, -1},
+    {-1, 0},
+    {-1, 1},
 };
 
+static
 int mod(int a, int b)
 {
     assert(b > 0);
@@ -39,8 +40,10 @@ int mod(int a, int b)
     return ret;
 }
 
-#define adjacent_hex(corner) (hex_neighbors[mod((corner), 6)])
-
+struct hex_coord adjacent_hex(int yaw)
+{
+    return hex_neighbors[mod(yaw, 6)];
+}
 
 struct hex_coord hex_add(struct hex_coord a, struct hex_coord b)
 {
