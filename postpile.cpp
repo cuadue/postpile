@@ -49,8 +49,8 @@ struct {
     struct hex_coord center;
 } view = {
     .yaw = 0,
-    .height = 5,
-    .distance = 5,
+    .height = 10,
+    .distance = 10,
     .center.q = 0,
     .center.r = 0,
 };
@@ -145,10 +145,6 @@ map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
     return ret;
 }
 
-void animate_eye()
-{
-}
-
 glm::mat4 view_matrix()
 {
     // yaw = 0 -> looking up the positive Y-axis
@@ -220,8 +216,8 @@ void draw(const tile_generator &tile_gen)
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
     (void) mouse_hex;
 
-    for (int r = -20; r < 20; r++) {
-        for (int q = -20; q < 20; q++) {
+    for (int r = -10; r < 10; r++) {
+        for (int q = -10; q < 10; q++) {
             struct hex_coord coord = {
                 .q = q + view.center.q,
                 .r = r + view.center.r

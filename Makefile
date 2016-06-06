@@ -7,9 +7,9 @@ else
 PKGS = glew x11 xrandr xxf86vm gl
 endif
 
-CFLAGS += -Werror -Wall -Wextra -std=c99 -ggdb
+CFLAGS += -Werror -Wall -Wextra -std=c99 -O1
 
-CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -ggdb
+CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1
 CXXFLAGS += $(shell sdl2-config --cflags)
 CXXFLAGS += $(shell pkg-config --static --cflags $(PKGS))
 

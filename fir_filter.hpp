@@ -4,14 +4,19 @@
 
 template<typename T>
 class fir_filter {
-    const std::vector<float> coeff;
+    std::vector<float> coeff;
     std::list<T> state;
 
 public:
     fir_filter(const std::vector<float> _coeff)
     : coeff(_coeff)
     , state(coeff.size())
-    {}
+    {
+        float sum = 0;
+        for (float c : coeff) sum += c;
+        float gain = 1/sum;
+        for (float &c : coeff) c *= gain;
+    }
 
     T next(const T &x) {
         int i = 0;
