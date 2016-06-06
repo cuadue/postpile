@@ -22,6 +22,7 @@ extern "C" {
 
 #include "wavefront.hpp"
 #include "gl2.hpp"
+#include "fir_filter.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -36,6 +37,9 @@ vec2 mouse;
 wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
+
+fir_filter<vec3> center_filter({0, 0.2, 0.3, 0.3, 0.2});
+fir_filter<vec3> eye_filter({0, 0.2, 0.2, 0.3, 0.3});
 
 int bail = 0;
 SDL_Window *window;
@@ -76,12 +80,12 @@ static SDL_Window *make_window()
 // low elevation -> high elevation
 // The distribution tends to be gaussian, so fudge a slightly more uniform
 // distribution by adding more instances of tiles to the edges
-static const string top_tileset {"~~~~++..**%:!^^$$>>>"};
+static const string top_tileset {"~~~~++....%%:!^^$$>>>"};
 static const map<char, string> top_texfiles {
     {'~', "horiz-water.jpg"},
     {'+', "horiz-waterplants.jpg"},
     {'.', "horiz-sand.jpg"},
-    {'*', "horiz-rock.jpg"},
+    //{'*', "soil.jpg"},
     {'%', "horiz-grass-rock.jpg"},
     {':', "horiz-bush.jpg"},
     {'!', "horiz-grass-fine.jpg"},
@@ -91,15 +95,14 @@ static const map<char, string> top_texfiles {
 };
 
 // just kind of special case the water and waterplants out eventually
-static const string side_tileset {"...===--&&^^^>>>>"};
+static const string side_tileset {"....::::__==--->>"};
 static const map<char, string> side_texfiles {
     {'.', "vertical-sand-light1.jpg"},
     {':', "vertical-sand-dark.jpg"},
     {'=', "vertical-brick-darktop1.jpg"},
+    {'_', "soil.jpg"},
     {'-', "vertical-brick-greentop1.jpg"},
-    {'&', "vertical-soil-greentop1.jpg"},
-    {'^', "vertical-ivy1.jpg"},
-    {'>', "vertical-rock.jpg"}
+    {'>', "horiz-ice.jpg"}
 };
 
 int pushd(const char *path)
@@ -142,19 +145,24 @@ map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
     return ret;
 }
 
+void animate_eye()
+{
+}
+
 glm::mat4 view_matrix()
 {
     // yaw = 0 -> looking up the positive Y-axis
     // yaw is negative because... fudge factor
     float angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
     struct point c = hex_to_pixel(view.center);
-    glm::vec3 eye(
+    glm::vec3 target_eye(
         c.x - view.distance * cos(angle),
         c.y - view.distance * sin(angle),
         view.height);
 
-    glm::vec3 center(c.x, c.y, 0);
-
+    vec3 eye = eye_filter.next(target_eye);
+    glm::vec3 target_center(c.x, c.y, 0);
+    vec3 center = center_filter.next(target_center);
     return glm::lookAt(eye, center, vec3(0, 0, 1));
 }
 

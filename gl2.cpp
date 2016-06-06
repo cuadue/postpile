@@ -162,7 +162,6 @@ GLuint load_texture_2d(SDL_Surface *surf)
         float aniso = 0;
         glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &aniso);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso);
-        fprintf(stderr, "Using %g anisotropic filtering\n", aniso);
     }
     else {
         fprintf(stderr, "No anisotropic filtering support\n");
@@ -206,7 +205,6 @@ gl2_material::gl2_material(
         SDL_Surface *surf;
         if ((surf = load_texture(texture_file.c_str()))) {
             texture = load_texture_2d(surf);
-            printf("Loaded texture %u\n", texture);
             SDL_FreeSurface(surf);
         }
         else {

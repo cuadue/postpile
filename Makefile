@@ -27,6 +27,8 @@ tex:
 	;do convert "$$f" -resize 256x256 -sigmoidal-contrast '4,50%' "../$@/$$f" \
 	;done
 
+postpile.cpp: fir_filter.hpp
+
 postpile.o: postpile.cpp
 %.o: %.cpp %.hpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
