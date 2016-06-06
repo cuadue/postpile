@@ -38,8 +38,8 @@ wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
 
-fir_filter<vec3> center_filter({0, 0.2, 0.3, 0.3, 0.2});
-fir_filter<vec3> eye_filter({0, 0.2, 0.2, 0.3, 0.3});
+fir_filter<vec3> center_filter({0.2, 0.3, 0.3, 0.2});
+fir_filter<float> eye_angle_filter({0.2, 0.3, 0.3, 0.2});
 
 int bail = 0;
 SDL_Window *window;
@@ -153,16 +153,17 @@ glm::mat4 view_matrix()
 {
     // yaw = 0 -> looking up the positive Y-axis
     // yaw is negative because... fudge factor
-    float angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
+    float target_angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
+    float angle = eye_angle_filter.next(target_angle);
     struct point c = hex_to_pixel(view.center);
-    glm::vec3 target_eye(
-        c.x - view.distance * cos(angle),
-        c.y - view.distance * sin(angle),
-        view.height);
+    vec3 relative_eye(-view.distance * cos(angle),
+                      -view.distance * sin(angle),
+                      view.height);
 
-    vec3 eye = eye_filter.next(target_eye);
     glm::vec3 target_center(c.x, c.y, 0);
     vec3 center = center_filter.next(target_center);
+    vec3 eye = center + relative_eye;
+
     return glm::lookAt(eye, center, vec3(0, 0, 1));
 }
 
