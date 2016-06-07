@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <map>
+#include <set>
 
 #include <GL/glew.h>
 #include <SDL.h>
@@ -15,6 +16,7 @@
 extern "C" {
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include "osn.h"
 #include "hex.h"
 #include "tiles.h"
@@ -31,6 +33,8 @@ extern "C" {
 
 using namespace std;
 using namespace glm;
+
+int draw_tile_count = 0;
 
 mat4 proj_matrix;
 vec2 mouse;
@@ -49,8 +53,8 @@ struct {
     struct hex_coord center;
 } view = {
     .yaw = 0,
-    .height = 10,
-    .distance = 10,
+    .height = 50,
+    .distance = 40,
     .center.q = 0,
     .center.r = 0,
 };
@@ -64,11 +68,13 @@ void libs_print_err() {
     {fprintf(stderr, "%s:%d Assert failed: %s\n", __FILE__, __LINE__, #x); \
         libs_print_err(); exit(1); }
 
+/*
 static void set_msaa(int buf, int samp)
 {
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, buf);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samp);
 }
+*/
 
 static SDL_Window *make_window()
 {
@@ -163,6 +169,7 @@ glm::mat4 view_matrix()
     return glm::lookAt(eye, center, vec3(0, 0, 1));
 }
 
+inline
 mat4 hex_model_matrix(int q, int r, float z)
 {
     struct hex_coord coord = { .q = q, .r = r };
@@ -177,6 +184,7 @@ char float_index(const string &coll, float x)
     return coll.at(CLAMP(x * size, 0, size-1));
 }
 
+static inline
 struct hex_coord hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
 {
     // Define two points in screen space
@@ -198,6 +206,26 @@ struct hex_coord hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
     return ret;
 }
 
+vec2 to_vec2(struct point p)
+{
+    return vec2(p.x, p.y);
+}
+
+void view_bounds(mat4 view_proj, hex_coord *small, hex_coord *large)
+{
+    hex_coord corners[4] = {
+        hex_under_mouse(view_proj, {-1, -1}),
+        hex_under_mouse(view_proj, {-1,  1}),
+        hex_under_mouse(view_proj, { 1,  1}),
+        hex_under_mouse(view_proj, { 1, -1}),
+    };
+
+    small->q = min({corners[0].q, corners[1].q, corners[2].q, corners[3].q});
+    small->r = min({corners[0].r, corners[1].r, corners[2].r, corners[3].r});
+    large->q = max({corners[0].q, corners[1].q, corners[2].q, corners[3].q});
+    large->r = max({corners[0].r, corners[1].r, corners[2].r, corners[3].r});
+}
+
 void draw(const tile_generator &tile_gen)
 {
     struct drawitem {
@@ -205,7 +233,8 @@ void draw(const tile_generator &tile_gen)
         mat4 modelview_matrix;
     };
 
-    vector<drawitem> drawlist;
+    static vector<drawitem> drawlist;
+    drawlist.clear();
     mat4 vm = view_matrix();
 
     int window_h = 0, window_w = 0;
@@ -216,12 +245,14 @@ void draw(const tile_generator &tile_gen)
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
     (void) mouse_hex;
 
-    for (int r = -10; r < 10; r++) {
-        for (int q = -10; q < 10; q++) {
-            struct hex_coord coord = {
-                .q = q + view.center.q,
-                .r = r + view.center.r
-            };
+    hex_coord sml, lrg;
+    view_bounds(view_proj, &sml, &lrg);
+    assert(sml.r <= lrg.r);
+    assert(sml.q <= lrg.q);
+
+    for (int r = sml.r; r <= lrg.r; r++) {
+        for (int q = sml.q; q <= lrg.q; q++) {
+            struct hex_coord coord = { .q = q, .r = r };
             struct point center = hex_to_pixel(coord);
 
             drawitem item;
@@ -232,6 +263,8 @@ void draw(const tile_generator &tile_gen)
             drawlist.push_back(item);
         }
     }
+
+    draw_tile_count = drawlist.size();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -246,12 +279,14 @@ void draw(const tile_generator &tile_gen)
         gl2_draw_mesh_group(post_mesh, "top");
     }
 
+    /*
     for (const auto &item : drawlist) {
         glLoadMatrixf(value_ptr(item.modelview_matrix));
         char tile = float_index(side_tileset, item.elevation);
         gl2_setup_material(side_materials.at(tile));
         gl2_draw_mesh_group(post_mesh, "side");
     }
+    */
 
     gl2_teardown_mesh_data();
     gl2_teardown_material();
@@ -274,6 +309,11 @@ void move(int n)
 {
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
 }
+
+void zoom_in(float dir=1) { view.distance -= 0.1 * dir; }
+void zoom_out() { zoom_in(-1); }
+void up(float dir=1) { view.height += 0.1 * dir; }
+void down() { up(-1); }
 
 void events()
 {
@@ -313,15 +353,13 @@ void events()
         }
     }
 
-    /*
     const uint8_t *keystate = SDL_GetKeyboardState(NULL);
 
-    if (keystate[SDL_SCANCODE_R]) zoom_in();
-    if (keystate[SDL_SCANCODE_F]) zoom_out();
+    if (keystate[SDL_SCANCODE_F]) zoom_in();
+    if (keystate[SDL_SCANCODE_V]) zoom_out();
 
     if (keystate[SDL_SCANCODE_T]) up();
     if (keystate[SDL_SCANCODE_G]) down();
-    */
 }
 
 
@@ -331,9 +369,9 @@ int main()
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));
 
-    set_msaa(1, 4);
+    //set_msaa(1, 4);
     if (!(window = make_window())) {
-        set_msaa(0, 0);
+        //set_msaa(0, 0);
         libs_assert((window = make_window()));
     }
 
@@ -366,7 +404,12 @@ int main()
     tile_gen.feature_size = 40;
     tiles_init(&tile_gen, 123);
 
+    struct timeval starttime, frametime;
+
     while (!bail) {
+        if (gettimeofday(&starttime, NULL) < 0) {
+            perror("gettimeofday");
+        }
         events();
         draw(tile_gen);
 
@@ -374,5 +417,15 @@ int main()
         if (!swap_interval) {
             SDL_Delay(15);
         }
+
+        if (gettimeofday(&frametime, NULL) < 0) {
+            perror("gettimeofday");
+        }
+
+        float dsec = frametime.tv_sec - starttime.tv_sec;
+        suseconds_t dusec = frametime.tv_usec - starttime.tv_usec;
+
+        printf("%d tiles in %g ms\n", draw_tile_count,
+                1e3 * dsec + dusec/1e3);
     }
 }
