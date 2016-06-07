@@ -229,12 +229,13 @@ void view_bounds(mat4 view_proj, hex_coord *small, hex_coord *large)
 void draw(const tile_generator &tile_gen)
 {
     struct drawitem {
-        float elevation;
         mat4 modelview_matrix;
     };
 
-    static vector<drawitem> drawlist;
-    drawlist.clear();
+    static map<char, vector<drawitem>> top_drawlist, side_drawlist;
+    top_drawlist.clear();
+    side_drawlist.clear();
+
     mat4 vm = view_matrix();
 
     int window_h = 0, window_w = 0;
@@ -250,21 +251,25 @@ void draw(const tile_generator &tile_gen)
     assert(sml.r <= lrg.r);
     assert(sml.q <= lrg.q);
 
+    draw_tile_count = 0;
     for (int r = sml.r; r <= lrg.r; r++) {
         for (int q = sml.q; q <= lrg.q; q++) {
             struct hex_coord coord = { .q = q, .r = r };
             struct point center = hex_to_pixel(coord);
 
             drawitem item;
-            item.elevation = tile_value(&tile_gen, center.x, center.y);
-            mat4 mm = hex_model_matrix(coord.q, coord.r, item.elevation-0.5);
+            float elevation = tile_value(&tile_gen, center.x, center.y);
+            mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
             item.modelview_matrix = vm * mm;
+            char top_tile = float_index(top_tileset, elevation);
+            char side_tile = float_index(side_tileset, elevation);
 
-            drawlist.push_back(item);
+            top_drawlist[top_tile].push_back(item);
+            side_drawlist[side_tile].push_back(item);
+            draw_tile_count++;
         }
     }
 
-    draw_tile_count = drawlist.size();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -272,11 +277,21 @@ void draw(const tile_generator &tile_gen)
     glMatrixMode(GL_MODELVIEW);
 
     gl2_setup_mesh_data(post_mesh);
-    for (const auto &item : drawlist) {
-        glLoadMatrixf(value_ptr(item.modelview_matrix));
-        char tile = float_index(top_tileset, item.elevation);
-        gl2_setup_material(top_materials.at(tile));
-        gl2_draw_mesh_group(post_mesh, "top");
+
+    for (const auto &x : top_drawlist) {
+        gl2_setup_material(top_materials.at(x.first));
+        for (const drawitem &item : x.second) {
+            glLoadMatrixf(value_ptr(item.modelview_matrix));
+            gl2_draw_mesh_group(post_mesh, "top");
+        }
+    }
+
+    for (const auto &x : side_drawlist) {
+        gl2_setup_material(side_materials.at(x.first));
+        for (const drawitem &item : x.second) {
+            glLoadMatrixf(value_ptr(item.modelview_matrix));
+            gl2_draw_mesh_group(post_mesh, "side");
+        }
     }
 
     /*
@@ -405,6 +420,8 @@ int main()
     tiles_init(&tile_gen, 123);
 
     struct timeval starttime, frametime;
+    float avg_fps = 30;
+    int i=0;
 
     while (!bail) {
         if (gettimeofday(&starttime, NULL) < 0) {
@@ -425,7 +442,9 @@ int main()
         float dsec = frametime.tv_sec - starttime.tv_sec;
         suseconds_t dusec = frametime.tv_usec - starttime.tv_usec;
 
-        printf("%d tiles in %g ms\n", draw_tile_count,
-                1e3 * dsec + dusec/1e3);
+        float this_fps = 1/(dsec + dusec/1e6);
+        avg_fps += (this_fps - avg_fps) * 0.1;
+        if (i++ % 10 == 0)
+            printf("%g fps\n", avg_fps);
     }
 }
