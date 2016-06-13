@@ -187,8 +187,7 @@ mat4 hex_model_matrix(int q, int r, float z)
 {
     struct hex_coord coord = { .q = q, .r = r };
     struct point center = hex_to_pixel(coord);
-    glm::mat4 model = glm::translate(mat4(1), vec3(center.x, center.y, z));
-    return glm::scale(model, glm::vec3(0.9, 0.9, 0.9));
+    return glm::translate(mat4(1), vec3(center.x, center.y, z));
 }
 
 char float_index(const string &coll, float x)
@@ -295,7 +294,7 @@ void draw(const tile_generator &tile_gen)
         gl2_setup_material(top_materials.at(x.first));
         for (const drawitem &item : x.second) {
             glLoadMatrixf(value_ptr(item.modelview_matrix));
-            gl2_draw_mesh_group(post_mesh, "top");
+            gl2_draw_mesh_group(post_mesh, "hex_top");
         }
     }
 
