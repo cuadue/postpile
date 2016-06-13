@@ -31,6 +31,11 @@ extern "C" {
 #define CLAMP(x, lil, big) MAX(MIN(big, x), lil)
 #define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
 
+#define VIEW_MAX_PITCH (M_PI/2.01)
+#define VIEW_MIN_PITCH (M_PI/4.0)
+#define VIEW_MAX_DISTANCE 40
+#define VIEW_MIN_DISTANCE 3
+
 using namespace std;
 using namespace glm;
 
@@ -42,22 +47,28 @@ wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
 
-fir_filter<vec3> center_filter({0.2, 0.3, 0.3, 0.2});
-fir_filter<float> eye_angle_filter({0.2, 0.3, 0.3, 0.2});
+const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
 
 int bail = 0;
 SDL_Window *window;
 struct {
     int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
-    float height, distance;
+    filtered_value<float> pitch, distance;
     struct hex_coord center;
 } view = {
     .yaw = 0,
-    .height = 50,
-    .distance = 40,
+    .pitch = filtered_value<float>(view_filter_coeffs,
+        VIEW_MAX_PITCH, VIEW_MIN_PITCH),
+
+    .distance = filtered_value<float>(view_filter_coeffs,
+        VIEW_MAX_DISTANCE, VIEW_MIN_DISTANCE),
+
     .center.q = 0,
     .center.r = 0,
 };
+
+fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
+fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
 
 void libs_print_err() {
     fprintf(stderr, "SDL Error: %s\n", SDL_GetError());
@@ -158,9 +169,11 @@ glm::mat4 view_matrix()
     float target_angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
     float angle = eye_angle_filter.next(target_angle);
     struct point c = hex_to_pixel(view.center);
-    vec3 relative_eye(-view.distance * cos(angle),
-                      -view.distance * sin(angle),
-                      view.height);
+    float distance = view.distance.get();
+    float pitch = view.pitch.get();
+    vec3 relative_eye(-distance * cos(angle) * cos(pitch),
+                      -distance * sin(angle) * cos(pitch),
+                      distance * sin(pitch));
 
     glm::vec3 target_center(c.x, c.y, 0);
     vec3 center = center_filter.next(target_center);
@@ -325,10 +338,10 @@ void move(int n)
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
 }
 
-void zoom_in(float dir=1) { view.distance -= 0.1 * dir; }
+void zoom_in(float dir=1) { view.distance.add(0.5 * dir); }
 void zoom_out() { zoom_in(-1); }
-void up(float dir=1) { view.height += 0.1 * dir; }
-void down() { up(-1); }
+void pitch_up(float dir=1) { view.pitch.add(0.02 * dir); }
+void pitch_down() { pitch_up(-1); }
 
 void events()
 {
@@ -373,8 +386,8 @@ void events()
     if (keystate[SDL_SCANCODE_F]) zoom_in();
     if (keystate[SDL_SCANCODE_V]) zoom_out();
 
-    if (keystate[SDL_SCANCODE_T]) up();
-    if (keystate[SDL_SCANCODE_G]) down();
+    if (keystate[SDL_SCANCODE_T]) pitch_up();
+    if (keystate[SDL_SCANCODE_G]) pitch_down();
 }
 
 
@@ -421,6 +434,7 @@ int main()
 
     struct timeval starttime, frametime;
     float avg_fps = 30;
+    float avg_tiles_count = 500;
     int i=0;
 
     while (!bail) {
@@ -444,7 +458,8 @@ int main()
 
         float this_fps = 1/(dsec + dusec/1e6);
         avg_fps += (this_fps - avg_fps) * 0.1;
-        if (i++ % 10 == 0)
-            printf("%g fps\n", avg_fps);
+        avg_tiles_count += (draw_tile_count - avg_tiles_count) * 0.1;
+        if (i++ % 60 == 0)
+            printf("%g tiles -> %g fps\n", avg_tiles_count, avg_fps);
     }
 }
