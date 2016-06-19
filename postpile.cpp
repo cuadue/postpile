@@ -238,8 +238,27 @@ void view_bounds(mat4 view_proj, hex_coord *small, hex_coord *large)
     large->r = max({corners[0].r, corners[1].r, corners[2].r, corners[3].r});
 }
 
+void light()
+{
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glShadeModel(GL_SMOOTH);
+    float position[] = {0, 10, 10, 0};
+    float ambient_color[] = {0.25, 0.25, 0.25, 1};
+    float diffuse_color[] = {0.75, 0.75, 0.75, 1};
+    float material[] = {1, 1, 1, 1};
+    float specular_color[] = {0, 0, 0, 0};
+    glLightfv(GL_LIGHT0, GL_POSITION, position);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_color);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_color);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specular_color);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material);
+}
+
 void draw(const tile_generator &tile_gen)
 {
+    light();
+
     struct drawitem {
         mat4 modelview_matrix;
     };
