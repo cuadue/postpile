@@ -32,9 +32,9 @@ extern "C" {
 #define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
 
 #define VIEW_MAX_PITCH (M_PI/2.01)
-#define VIEW_MIN_PITCH (M_PI/4.0)
-#define VIEW_MAX_DISTANCE 40
-#define VIEW_MIN_DISTANCE 3
+#define VIEW_MIN_PITCH (M_PI/5.0)
+#define VIEW_MAX_DISTANCE 80
+#define VIEW_MIN_DISTANCE 10
 
 using namespace std;
 using namespace glm;
@@ -48,21 +48,22 @@ map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
 
 const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
+const vector<float> slow_view {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 5, 6};
 
 int bail = 0;
 SDL_Window *window;
 struct {
     int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
     filtered_value<float> pitch, distance;
+    fir_filter<float> radius;
     struct hex_coord center;
 } view = {
     .yaw = 0,
     .pitch = filtered_value<float>(view_filter_coeffs,
         VIEW_MAX_PITCH, VIEW_MIN_PITCH),
-
     .distance = filtered_value<float>(view_filter_coeffs,
         VIEW_MAX_DISTANCE, VIEW_MIN_DISTANCE),
-
+    .radius = fir_filter<float>(slow_view, 1),
     .center.q = 0,
     .center.r = 0,
 };
@@ -223,19 +224,44 @@ vec2 to_vec2(struct point p)
     return vec2(p.x, p.y);
 }
 
-void view_bounds(mat4 view_proj, hex_coord *small, hex_coord *large)
+static inline
+int cube_distance(const ivec3 &a, const ivec3 &b)
 {
-    hex_coord corners[4] = {
-        hex_under_mouse(view_proj, {-1, -1}),
-        hex_under_mouse(view_proj, {-1,  1}),
-        hex_under_mouse(view_proj, { 1,  1}),
-        hex_under_mouse(view_proj, { 1, -1}),
-    };
+    const ivec3 d = abs(a - b);
+    return (d.x + d.y + d.z) / 2;
+}
 
-    small->q = min({corners[0].q, corners[1].q, corners[2].q, corners[3].q});
-    small->r = min({corners[0].r, corners[1].r, corners[2].r, corners[3].r});
-    large->q = max({corners[0].q, corners[1].q, corners[2].q, corners[3].q});
-    large->r = max({corners[0].r, corners[1].r, corners[2].r, corners[3].r});
+static inline
+ivec3 hex_to_cube(const ivec2 &v)
+{
+    return ivec3(v.x, v.y, -v.x - v.y);
+}
+
+static inline
+int hex_distance(const ivec2 &a, const ivec2 &b)
+{
+    return cube_distance(hex_to_cube(a), hex_to_cube(b));
+}
+
+vector<hex_coord> hex_range(int n, const hex_coord &center)
+{
+    vector<hex_coord> ret;
+    for (int q = -n; q <= n; q++) {
+        int start = std::max(-n, -n-q);
+        int stop = std::min(n, -q+n);
+        for (int r = start; r <= stop; r++) {
+            ret.push_back({center.q + q, center.r + r});
+        }
+    }
+    return ret;
+}
+
+vector<hex_coord> visible_hexes(const mat4 &view_proj)
+{
+    hex_coord center = hex_under_mouse(view_proj, {0, 0});
+    hex_coord extent = hex_under_mouse(view_proj, {0, -0.8});
+    int dist = hex_distance({extent.q, extent.r}, {center.q, center.r});
+    return hex_range(lround(view.radius.next(dist)), center);
 }
 
 void light()
@@ -276,16 +302,9 @@ void draw(const tile_generator &tile_gen)
     mat4 view_proj = proj_matrix * vm;
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
     (void) mouse_hex;
-
-    hex_coord sml, lrg;
-    view_bounds(view_proj, &sml, &lrg);
-    assert(sml.r <= lrg.r);
-    assert(sml.q <= lrg.q);
-
     draw_tile_count = 0;
-    for (int r = sml.r; r <= lrg.r; r++) {
-        for (int q = sml.q; q <= lrg.q; q++) {
-            struct hex_coord coord = { .q = q, .r = r };
+
+    for (const hex_coord coord : visible_hexes(view_proj)) {
             struct point center = hex_to_pixel(coord);
 
             drawitem item;
@@ -298,9 +317,7 @@ void draw(const tile_generator &tile_gen)
             top_drawlist[top_tile].push_back(item);
             side_drawlist[side_tile].push_back(item);
             draw_tile_count++;
-        }
     }
-
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -477,7 +494,7 @@ int main()
         float this_fps = 1/(dsec + dusec/1e6);
         avg_fps += (this_fps - avg_fps) * 0.1;
         avg_tiles_count += (draw_tile_count - avg_tiles_count) * 0.1;
-        if (i++ % 60 == 0)
+        if (i++ % 600 == 0)
             printf("%g tiles -> %g fps\n", avg_tiles_count, avg_fps);
     }
 }
