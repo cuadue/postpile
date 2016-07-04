@@ -224,6 +224,7 @@ vec2 to_vec2(struct point p)
     return vec2(p.x, p.y);
 }
 
+/*
 static inline
 int cube_distance(const ivec3 &a, const ivec3 &b)
 {
@@ -242,6 +243,7 @@ int hex_distance(const ivec2 &a, const ivec2 &b)
 {
     return cube_distance(hex_to_cube(a), hex_to_cube(b));
 }
+*/
 
 vector<hex_coord> hex_range(int n, const hex_coord &center)
 {
@@ -256,12 +258,9 @@ vector<hex_coord> hex_range(int n, const hex_coord &center)
     return ret;
 }
 
-vector<hex_coord> visible_hexes(const mat4 &view_proj)
+vector<hex_coord> visible_hexes()
 {
-    hex_coord center = hex_under_mouse(view_proj, {0, 0});
-    hex_coord extent = hex_under_mouse(view_proj, {0, -0.8});
-    int dist = hex_distance({extent.q, extent.r}, {center.q, center.r});
-    return hex_range(lround(view.radius.next(dist)), center);
+    return hex_range(16, view.center);
 }
 
 void light()
@@ -304,7 +303,7 @@ void draw(const tile_generator &tile_gen)
     (void) mouse_hex;
     draw_tile_count = 0;
 
-    for (const hex_coord coord : visible_hexes(view_proj)) {
+    for (const hex_coord coord : visible_hexes()) {
             struct point center = hex_to_pixel(coord);
 
             drawitem item;
