@@ -37,6 +37,14 @@ postpile.o: postpile.cpp fir_filter.hpp
 postpile: $(OBJS) tex
 	$(CXX) -o $@ $(OBJS) $(LDFLAGS) 
 
+ifeq ($(shell uname), Darwin)
+Postpile.app: postpile tex post.obj
+	mkdir -p $@/Contents/MacOS
+	cp -a postpile $@/Contents/MacOS/_postpile
+	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
+	cp -a post.obj tex $@/Contents/MacOS
+endif
+
 clean:
 	rm -f $(OBJS)
 	rm -f postpile
