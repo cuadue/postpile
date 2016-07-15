@@ -427,6 +427,7 @@ void events()
 
 int main()
 {
+    fprintf(stderr, "%s\n", getwd(NULL));
     libs_assert(!SDL_Init(SDL_INIT_VIDEO));
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));

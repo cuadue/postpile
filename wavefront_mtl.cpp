@@ -1,3 +1,6 @@
+/* (C) 2016 Wes Waugh
+ * GPLv3 License: respect Stallman because he is right.
+ */
 #include <cstring>
 #include <cstdio>
 #include <map>

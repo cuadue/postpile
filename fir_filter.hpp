@@ -1,3 +1,9 @@
+/* (C) 2016 Wes Waugh
+ * GPLv3 License: respect Stallman because he is right.
+ */
+
+/* TODO This is wildly inefficient thanks in advance
+ */
 #pragma once
 #include <vector>
 #include <list>
