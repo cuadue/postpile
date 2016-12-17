@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <map>
-#include <SDL/SDL.h>
+#include <SDL.h>
 
 #include "wavefront.hpp"
 
@@ -17,6 +17,7 @@ struct gl2_material {
     GLfloat shininess;
     GLfloat specular[4], diffuse[4];
     GLuint texture;
+    void set_diffuse(const std::vector<GLfloat> &x);
 };
 
 void gl2_render(

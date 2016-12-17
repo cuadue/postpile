@@ -55,6 +55,12 @@ gl2_material::gl2_material()
         specular[i] = 0;
     }
     shininess = 0;
+    texture = 0;
+}
+
+void gl2_material::set_diffuse(const std::vector<GLfloat> &x)
+{
+    for (int i = 0; i < 4; i++) diffuse[i] = x[i];
 }
 
 void gl2_setup_mesh_data(const wf_mesh &mesh)
@@ -91,6 +97,7 @@ void gl2_setup_material(const gl2_material &mat)
     glBindTexture(GL_TEXTURE_2D, mat.texture);
     glClientActiveTexture(GL_TEXTURE0);
     glTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, mat.diffuse);
+    glColor4fv(mat.diffuse);
 
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
     // arg0 * arg2 + arg1 * (1-arg2)
@@ -128,7 +135,7 @@ void gl2_setup_material(const gl2_material &mat)
 
     glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
     glTexEnvi(GL_TEXTURE_ENV, GL_SRC0_ALPHA, GL_PREVIOUS);
-    glTexEnvf(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
+    glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
 }
 
 void gl2_teardown_material()

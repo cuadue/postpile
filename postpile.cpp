@@ -46,6 +46,8 @@ vec2 mouse;
 wf_mesh post_mesh;
 map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
+gl2_material cursor_mtl;
+wf_mesh cursor_mesh;
 
 const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
 const vector<float> slow_view {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 5, 6};
@@ -280,6 +282,28 @@ void light()
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material);
 }
 
+void draw_mouse_cursor(const tile_generator &tile_gen)
+{
+    glDisable(GL_LIGHTING);
+    glDisable(GL_LIGHT0);
+    mat4 vm = view_matrix();
+    mat4 view_proj = proj_matrix * vm;
+    int window_h = 0, window_w = 0;
+    SDL_GetWindowSize(window, &window_w, &window_h);
+    glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
+                           2 * (window_h-mouse.y) / (float)window_h - 1);
+    struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
+    struct point center = hex_to_pixel(mouse_hex);
+    float elevation = tile_value(&tile_gen, center.x, center.y);
+    mat4 cursor_mm = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
+    mat4 cursor_mvp = vm * cursor_mm;
+    gl2_setup_mesh_data(cursor_mesh);
+    gl2_setup_material(cursor_mtl);
+    glLoadMatrixf(value_ptr(cursor_mvp));
+    gl2_draw_mesh_group(cursor_mesh, "cursor");
+    gl2_teardown_mesh_data();
+}
+
 void draw(const tile_generator &tile_gen)
 {
     light();
@@ -288,19 +312,8 @@ void draw(const tile_generator &tile_gen)
         mat4 modelview_matrix;
     };
 
-    static map<char, vector<drawitem>> top_drawlist, side_drawlist;
-    top_drawlist.clear();
-    side_drawlist.clear();
-
+    map<char, vector<drawitem>> top_drawlist, side_drawlist;
     mat4 vm = view_matrix();
-
-    int window_h = 0, window_w = 0;
-    SDL_GetWindowSize(window, &window_w, &window_h);
-    glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
-                           2 * (window_h-mouse.y) / (float)window_h - 1);
-    mat4 view_proj = proj_matrix * vm;
-    struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
-    (void) mouse_hex;
     draw_tile_count = 0;
 
     for (const hex_coord coord : visible_hexes()) {
@@ -323,6 +336,8 @@ void draw(const tile_generator &tile_gen)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
 
+    draw_mouse_cursor(tile_gen);
+
     gl2_setup_mesh_data(post_mesh);
 
     for (const auto &x : top_drawlist) {
@@ -331,6 +346,7 @@ void draw(const tile_generator &tile_gen)
             glLoadMatrixf(value_ptr(item.modelview_matrix));
             gl2_draw_mesh_group(post_mesh, "hex_top");
         }
+        gl2_teardown_material();
     }
 
     for (const auto &x : side_drawlist) {
@@ -339,19 +355,10 @@ void draw(const tile_generator &tile_gen)
             glLoadMatrixf(value_ptr(item.modelview_matrix));
             gl2_draw_mesh_group(post_mesh, "side");
         }
+        gl2_teardown_material();
     }
-
-    /*
-    for (const auto &item : drawlist) {
-        glLoadMatrixf(value_ptr(item.modelview_matrix));
-        char tile = float_index(side_tileset, item.elevation);
-        gl2_setup_material(side_materials.at(tile));
-        gl2_draw_mesh_group(post_mesh, "side");
-    }
-    */
 
     gl2_teardown_mesh_data();
-    gl2_teardown_material();
 }
 
 void resize()
@@ -427,7 +434,6 @@ void events()
 
 int main()
 {
-    fprintf(stderr, "%s\n", getwd(NULL));
     libs_assert(!SDL_Init(SDL_INIT_VIDEO));
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
     libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));
@@ -459,6 +465,9 @@ int main()
     post_mesh = wf_mesh_from_file("post.obj");
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
+
+    cursor_mtl.set_diffuse({1, 0, 0, 0.5});
+    cursor_mesh = wf_mesh_from_file("cursor.obj");
 
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };

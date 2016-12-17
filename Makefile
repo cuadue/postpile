@@ -8,10 +8,12 @@ PKGS = glew x11 xrandr xxf86vm gl
 endif
 
 CFLAGS += -Werror -Wall -Wextra -std=c99 -O1
+CFLAGS += -Iglm
 
 CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1
 CXXFLAGS += $(shell sdl2-config --cflags)
 CXXFLAGS += $(shell pkg-config --static --cflags $(PKGS))
+CXXFLAGS += -Iglm
 
 LDFLAGS += $(shell sdl2-config --libs) -lSDL2_ttf -lSDL2_image
 LDFLAGS += -lm
