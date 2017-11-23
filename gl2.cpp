@@ -12,8 +12,14 @@ extern "C" {
 
 #include "gl2.hpp"
 
+using std::map;
+using std::string;
+using std::pair;
+using std::vector;
+
+/* Implementation behind the check_gl_error() macro */
 void __check_gl_error(const char *file, int line) {
-    const char *err;
+    const char *err = "Unknown GL error";
     switch (glGetError()) {
     case GL_NO_ERROR: return;
     #define c(x) case (x): err = #x; break
@@ -24,17 +30,10 @@ void __check_gl_error(const char *file, int line) {
     c(GL_OUT_OF_MEMORY);
     c(GL_STACK_UNDERFLOW);
     c(GL_STACK_OVERFLOW);
-    default:
-        puts("Unknown GL error\n");
-        break;
+    #undef c
     }
     fprintf(stderr, "%s:%d: %s\n", file, line, err);
 }
-
-using std::map;
-using std::string;
-using std::pair;
-using std::vector;
 
 static int has_texture_coords(const wf_mesh &mesh)
 {
@@ -47,15 +46,11 @@ static int has_normals(const wf_mesh &mesh)
 }
 
 gl2_material::gl2_material()
+: shininess(0)
+, specular{0, 0, 0, 0} /* No specularity */
+, diffuse{1, 1, 1, 1} /* Fully diffuse */
+, texture(0)
 {
-    for (int i = 0; i < 4; i++) {
-        diffuse[i] = 1;
-    }
-    for (int i = 0; i < 4; i++) {
-        specular[i] = 0;
-    }
-    shininess = 0;
-    texture = 0;
 }
 
 void gl2_material::set_diffuse(const std::vector<GLfloat> &x)
@@ -63,10 +58,15 @@ void gl2_material::set_diffuse(const std::vector<GLfloat> &x)
     for (int i = 0; i < 4; i++) diffuse[i] = x[i];
 }
 
+/* Send the GL arrays. This must be called before drawing a mesh. If the same
+ * mesh is being drawn multiple times, you can call this just once before
+ * drawing any number of the same mesh.
+ */
 void gl2_setup_mesh_data(const wf_mesh &mesh)
 {
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(4, GL_FLOAT, 0, &mesh.vertex4[0]);
+    check_gl_error();
 
     if (has_normals(mesh)) {
         glEnableClientState(GL_NORMAL_ARRAY);
@@ -77,18 +77,21 @@ void gl2_setup_mesh_data(const wf_mesh &mesh)
     if (has_texture_coords(mesh)) {
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         glTexCoordPointer(2, GL_FLOAT, 0, &mesh.texture2[0]);
+        check_gl_error();
     }
-    check_gl_error();
 }
 
+/* Call this once you're done drawing any given mesh */
 void gl2_teardown_mesh_data()
 {
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_NORMAL_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_NORMAL_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     check_gl_error();
 }
 
+/* Call this once before drawing each material. You can draw multiple times,
+ * either the same or different meshes */
 void gl2_setup_material(const gl2_material &mat)
 {
     // stage 0: light texture
@@ -147,6 +150,8 @@ void gl2_teardown_material()
 
 void gl2_draw_mesh_group(const wf_mesh &mesh, const string &group_name)
 {
+    if (!mesh.groups.count(group_name)) return;
+
     for (const wf_group &group : mesh.groups.at(group_name)) {
         int n = group.triangle_indices.size();
         const unsigned *p = &group.triangle_indices[0];

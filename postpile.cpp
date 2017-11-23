@@ -9,6 +9,7 @@
 #include <SDL_error.h>
 #include <SDL_image.h>
 
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -66,8 +67,7 @@ struct {
     .distance = filtered_value<float>(view_filter_coeffs,
         VIEW_MAX_DISTANCE, VIEW_MIN_DISTANCE),
     .radius = fir_filter<float>(slow_view, 1),
-    .center.q = 0,
-    .center.r = 0,
+    .center = {0, 0},
 };
 
 fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));

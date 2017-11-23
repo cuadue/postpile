@@ -57,9 +57,9 @@ public:
 
     void add(const T &x) {
         final_value += x;
-        if (isfinite(big))
+        if (std::isfinite(big))
             final_value = std::min(big, final_value);
-        if (isfinite(lil))
+        if (std::isfinite(lil))
             final_value = std::max(lil, final_value);
 
         filter.next(final_value);

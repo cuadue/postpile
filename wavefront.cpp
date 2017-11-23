@@ -2,7 +2,7 @@
  * GPLv3 License: respect Stallman because he is right.
  */
 
-/* * Vertex data are:
+/* Vertex data are:
  *      vertices (v)
  *      texture vertices (vt)
  *      vertex normals (vn)
@@ -41,13 +41,13 @@ using std::string;
 
 // A face is defined like "f v/t/n v/t/n v/t/n .." and this struct is one
 // of those tokens which comprises a face
-typedef struct {
+struct FaceToken {
     int v, t, n;
-} FaceToken;
+};
 
 // only used after the face has been triangulated. A better name might be
 // TriangulatedFace or something similarly verbose.
-typedef struct {
+struct Face {
     enum IndexType { VERTEX=0, TEXTURE=1, NORMAL=2 };
 
     int vertex_indices[3];
@@ -56,10 +56,9 @@ typedef struct {
     int smooth;
     int material;
     int group;
-} Face;
+};
 
-class Parse {
-public:
+struct Parse {
     vector<vec4> vertices;
     vector<vec3> normals;
     vector<vec2> textures;
@@ -403,7 +402,7 @@ vec4 Parse::face_vector(const Face &face, int from, int to) const {
 float Parse::angle_at_corner(const Face &face, int vertex_index) const {
     int origin = which_corner(face, vertex_index);
     assert(origin >= 0 && origin < 3);
-    int corner_a, corner_b;
+    int corner_a = -1, corner_b = -1;
     switch (origin) {
     case 0: corner_a = 1; corner_b = 2; break;
     case 1: corner_a = 0; corner_b = 2; break;
