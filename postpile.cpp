@@ -295,34 +295,17 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
-    mat4 cursor_mm = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
-    gl2_setup_mesh_data(cursor_mesh);
-    gl2_setup_material(cursor_mtl);
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(value_ptr(view_proj));
+    Drawlist drawlist;
+    drawlist.mesh = &cursor_mesh;
+    drawlist.view_projection_matrix = view_proj;
+    Drawlist::Model dlm;
+    dlm.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
+    dlm.material = &cursor_mtl;
 
-    glMatrixMode(GL_MODELVIEW);
-    glLoadMatrixf(value_ptr(cursor_mm));
-    gl2_draw_mesh_group(cursor_mesh, "cursor");
-    gl2_teardown_mesh_data();
+    drawlist.groups["cursor"].push_back(dlm);
+    gl2_draw_drawlist(drawlist);
 }
-
-struct Drawlist {
-    const wf_mesh *mesh;
-    mat4 view_projection_matrix;
-
-    struct Model {
-        gl2_material *material;
-        mat4 model_matrix;
-    };
-    struct Group {
-        const char *group_name;
-        vector<Model> models;
-    };
-    // Map group name to a bunch of models drawing that group
-    map<string, vector<Model>> groups;
-};
 
 void draw_drawlist(const Drawlist& drawlist);
 
@@ -363,45 +346,9 @@ void draw(const tile_generator &tile_gen)
 
     draw_mouse_cursor(tile_gen);
 
-    draw_drawlist(drawlist);
+    gl2_draw_drawlist(drawlist);
 }
 
-void draw_drawlist(const Drawlist& drawlist)
-{
-    assert(drawlist.mesh);
-    const wf_mesh &mesh = *drawlist.mesh;
-    gl2_setup_mesh_data(mesh);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(value_ptr(drawlist.view_projection_matrix));
-
-    for (const auto &pair : drawlist.groups) {
-        const string &group_name = pair.first;
-        map<gl2_material*, vector<mat4>> sorted;
-
-        for (const Drawlist::Model &model : pair.second) {
-            sorted[model.material].push_back(model.model_matrix);
-        }
-
-        if (!mesh.groups.count(group_name)) {
-            fprintf(stderr, "No mesh group %s\n", group_name.c_str());
-            abort();
-        }
-
-        const vector<wf_group> &g = mesh.groups.at(group_name);
-
-        for (const auto &pair : sorted) {
-            assert(pair.first);
-            gl2_setup_material(*pair.first);
-            for (const mat4 &matrix : pair.second) {
-                gl2_draw_mesh(matrix, g);
-            }
-            gl2_teardown_material();
-        }
-    }
-
-    gl2_teardown_mesh_data();
-}
 
 void resize()
 {

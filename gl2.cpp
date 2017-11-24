@@ -241,5 +241,42 @@ gl2_material::gl2_material(
     }
 }
 
+void gl2_draw_drawlist(const Drawlist& drawlist)
+{
+    assert(drawlist.mesh);
+    const wf_mesh &mesh = *drawlist.mesh;
+    gl2_setup_mesh_data(mesh);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(glm::value_ptr(drawlist.view_projection_matrix));
+
+    for (const auto &pair : drawlist.groups) {
+        const string &group_name = pair.first;
+        map<gl2_material*, vector<glm::mat4>> sorted;
+
+        for (const Drawlist::Model &model : pair.second) {
+            sorted[model.material].push_back(model.model_matrix);
+        }
+
+        if (!mesh.groups.count(group_name)) {
+            fprintf(stderr, "No mesh group %s\n", group_name.c_str());
+            abort();
+        }
+
+        const vector<wf_group> &g = mesh.groups.at(group_name);
+
+        for (const auto &pair : sorted) {
+            assert(pair.first);
+            gl2_setup_material(*pair.first);
+            for (const glm::mat4 &matrix : pair.second) {
+                gl2_draw_mesh(matrix, g);
+            }
+            gl2_teardown_material();
+        }
+    }
+
+    gl2_teardown_mesh_data();
+}
+
 //void gl2_renderer::set_view_projection_matrix(const glm::mat4&);
 
