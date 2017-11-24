@@ -4,6 +4,11 @@
 #include <SDL.h>
 
 #include "wavefront.hpp"
+#include "renderer.hpp"
+
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define check_gl_error() __check_gl_error(__FILE__, __LINE__)
 void __check_gl_error(const char *, int);
@@ -20,17 +25,20 @@ struct gl2_material {
     void set_diffuse(const std::vector<GLfloat> &x);
 };
 
-void gl2_render(
-    const wf_mesh &obj,
-    const std::map<std::string, gl2_material> &materials);
-
-void gl2_render_group(
-    const wf_mesh &obj,
-    const wf_group &group,
-    const std::map<std::string, gl2_material> &materials);
-
 void gl2_setup_mesh_data(const wf_mesh &mesh);
 void gl2_setup_material(const gl2_material &mat);
 void gl2_draw_mesh_group(const wf_mesh &, const std::string &);
 void gl2_teardown_material();
 void gl2_teardown_mesh_data();
+
+void gl2_draw_mesh(const glm::mat4 &matrix, std::vector<wf_group> groups);
+
+/*
+struct gl2_renderer : public renderer {
+    void set_projection_matrix(const glm::mat4&) override;
+    glm::mat4 projection_matrix() const override;
+
+    void set_modelview_matrix(const glm::mat4&) override;
+    glm::mat4 modelview_matrix() const override;
+};
+*/

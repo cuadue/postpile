@@ -1,18 +1,17 @@
 A doodle inspired by RPGs and hexagonal games. The controls are:
 
-       W         forward
-    Q     E      forward-left and forward-right
-    A     D      back-left and back-right
-       S         backward
+                  forward
 
-There's no point to any of it (much the same as in any artform) although I make
-no claim to artistry.
+                     W
+    forward-left  Q     E  forward-right
+       back-left  A     D  back-right
+                     S
 
-Building requires a bunch of junk, such as: `glm`, `SDL2`, `SDL_image`,
-`OpenGL`, and maybe most importantly, a working POSIX build system.
+                  backward
 
-There are efforts to try to make a distributable OSX package, but since I
-avoid transient fads, I presume you can run one command:
-`make && ./postpile`.
+Building requires `glm`, `SDL2`, `SDL_image`, `OpenGL`, and a working POSIX
+build system:
+
+    make && ./postpile
 
 This program is free code under the GPLv3 license. (C) 2016 Wes Waugh.

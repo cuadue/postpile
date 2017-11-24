@@ -44,7 +44,7 @@ Postpile.app: postpile tex post.obj
 	mkdir -p $@/Contents/MacOS
 	cp -a postpile $@/Contents/MacOS/_postpile
 	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
-	cp -a post.obj tex $@/Contents/MacOS
+	cp -a *.obj tex $@/Contents/MacOS
 endif
 
 clean:

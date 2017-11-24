@@ -148,6 +148,18 @@ void gl2_teardown_material()
     check_gl_error();
 }
 
+void gl2_draw_mesh(const glm::mat4 &matrix, std::vector<wf_group> groups)
+{
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf(glm::value_ptr(matrix));
+
+    for (const wf_group &group : groups) {
+        int n = group.triangle_indices.size();
+        const unsigned *p = &group.triangle_indices[0];
+        glDrawElements(GL_TRIANGLES, n, GL_UNSIGNED_INT, p);
+    }
+}
+
 void gl2_draw_mesh_group(const wf_mesh &mesh, const string &group_name)
 {
     if (!mesh.groups.count(group_name)) return;
@@ -228,3 +240,6 @@ gl2_material::gl2_material(
         }
     }
 }
+
+//void gl2_renderer::set_view_projection_matrix(const glm::mat4&);
+

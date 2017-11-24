@@ -296,66 +296,108 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
     mat4 cursor_mm = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
-    mat4 cursor_mvp = vm * cursor_mm;
     gl2_setup_mesh_data(cursor_mesh);
     gl2_setup_material(cursor_mtl);
-    glLoadMatrixf(value_ptr(cursor_mvp));
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(value_ptr(view_proj));
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadMatrixf(value_ptr(cursor_mm));
     gl2_draw_mesh_group(cursor_mesh, "cursor");
     gl2_teardown_mesh_data();
 }
+
+struct Drawlist {
+    const wf_mesh *mesh;
+    mat4 view_projection_matrix;
+
+    struct Model {
+        gl2_material *material;
+        mat4 model_matrix;
+    };
+    struct Group {
+        const char *group_name;
+        vector<Model> models;
+    };
+    // Map group name to a bunch of models drawing that group
+    map<string, vector<Model>> groups;
+};
+
+void draw_drawlist(const Drawlist& drawlist);
 
 void draw(const tile_generator &tile_gen)
 {
     light();
 
-    struct drawitem {
-        mat4 modelview_matrix;
-    };
+    Drawlist drawlist;
+    drawlist.mesh = &post_mesh;
+    drawlist.view_projection_matrix = proj_matrix * view_matrix();
 
-    map<char, vector<drawitem>> top_drawlist, side_drawlist;
-    mat4 vm = view_matrix();
+    // For benchmarking
     draw_tile_count = 0;
 
     for (const hex_coord coord : visible_hexes()) {
+            Drawlist::Model top;
+            Drawlist::Model side;
             struct point center = hex_to_pixel(coord);
 
-            drawitem item;
             float elevation = tile_value(&tile_gen, center.x, center.y);
             mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
-            item.modelview_matrix = vm * mm;
             char top_tile = float_index(top_tileset, elevation);
             char side_tile = float_index(side_tileset, elevation);
 
-            top_drawlist[top_tile].push_back(item);
-            side_drawlist[side_tile].push_back(item);
+            top.model_matrix = mm;
+            side.model_matrix = mm;
+            top.material = &top_materials.at(top_tile);
+            side.material = &side_materials.at(side_tile);
+
+            drawlist.groups["hex_top"].push_back(top);
+            drawlist.groups["side"].push_back(side);
             draw_tile_count++;
     }
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glMatrixMode(GL_MODELVIEW);
 
     draw_mouse_cursor(tile_gen);
 
-    gl2_setup_mesh_data(post_mesh);
+    draw_drawlist(drawlist);
+}
 
-    for (const auto &x : top_drawlist) {
-        gl2_setup_material(top_materials.at(x.first));
-        for (const drawitem &item : x.second) {
-            glLoadMatrixf(value_ptr(item.modelview_matrix));
-            gl2_draw_mesh_group(post_mesh, "hex_top");
-        }
-        gl2_teardown_material();
-    }
+void draw_drawlist(const Drawlist& drawlist)
+{
+    assert(drawlist.mesh);
+    const wf_mesh &mesh = *drawlist.mesh;
+    gl2_setup_mesh_data(mesh);
 
-    for (const auto &x : side_drawlist) {
-        gl2_setup_material(side_materials.at(x.first));
-        for (const drawitem &item : x.second) {
-            glLoadMatrixf(value_ptr(item.modelview_matrix));
-            gl2_draw_mesh_group(post_mesh, "side");
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(value_ptr(drawlist.view_projection_matrix));
+
+    for (const auto &pair : drawlist.groups) {
+        const string &group_name = pair.first;
+        map<gl2_material*, vector<mat4>> sorted;
+
+        for (const Drawlist::Model &model : pair.second) {
+            sorted[model.material].push_back(model.model_matrix);
         }
-        gl2_teardown_material();
+
+        if (!mesh.groups.count(group_name)) {
+            fprintf(stderr, "No mesh group %s\n", group_name.c_str());
+            abort();
+        }
+
+        const vector<wf_group> &g = mesh.groups.at(group_name);
+
+        for (const auto &pair : sorted) {
+            assert(pair.first);
+            gl2_setup_material(*pair.first);
+            for (const mat4 &matrix : pair.second) {
+                gl2_draw_mesh(matrix, g);
+            }
+            gl2_teardown_material();
+        }
     }
 
     gl2_teardown_mesh_data();
@@ -366,11 +408,9 @@ void resize()
     int w = 0, h = 0;
     SDL_GetWindowSize(window, &w, &h);
     glViewport(0, 0, w, h);
-    glMatrixMode(GL_PROJECTION);
     float fov = M_PI * 50.0 / 180.8;
     float aspect = w / (float)h;
     proj_matrix = perspective<float>(fov, aspect, 1, 1e2);
-    glLoadMatrixf(value_ptr(proj_matrix));
     check_gl_error();
 }
 
