@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <map>
 #include <set>
+#include <algorithm>
 
 #include <GL/glew.h>
 #include <SDL.h>
@@ -282,6 +283,10 @@ void light()
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material);
 }
 
+bool operator==(const hex_coord &a, const hex_coord &b) {
+    return a.q == b.q && a.r == b.r;
+}
+
 void draw_mouse_cursor(const tile_generator &tile_gen)
 {
     glDisable(GL_LIGHTING);
@@ -293,6 +298,11 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
     struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
+    // Not a pretty solution at all, but whatever
+    vector<hex_coord> visible = visible_hexes();
+    if (std::find(visible.cbegin(), visible.cend(), mouse_hex) == visible.cend()) {
+        return;
+    }
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
