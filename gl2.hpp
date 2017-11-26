@@ -1,15 +1,11 @@
 #pragma once
-#include <string>
 #include <SDL.h>
+#include <GL/glew.h>
 
 #include "renderer.hpp"
-
-#define GLM_FORCE_RADIANS
-#include <glm/glm.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
-#define check_gl_error() __check_gl_error(__FILE__, __LINE__)
-void __check_gl_error(const char *, int);
+extern "C" {
+#include "gl_aux.h"
+}
 
 struct gl2_material {
     gl2_material();

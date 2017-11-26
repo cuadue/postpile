@@ -19,6 +19,9 @@ struct wf_mesh {
      * uses a different material */
     std::map<std::string, std::vector<wf_group>> groups;
     std::vector<std::string> mtllibs;
+
+    bool has_texture_coords() const;
+    bool has_normals() const;
 };
 
 struct wf_mesh wf_mesh_from_file(const char *path);

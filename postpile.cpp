@@ -26,7 +26,9 @@ extern "C" {
 
 #include "wavefront.hpp"
 #include "gl2.hpp"
+#include "gl3.hpp"
 #include "fir_filter.hpp"
+#include "gl_aux.h"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -41,6 +43,8 @@ extern "C" {
 using namespace std;
 using namespace glm;
 
+const int use_gl2 = 0;
+
 int draw_tile_count = 0;
 
 mat4 proj_matrix;
@@ -50,6 +54,7 @@ map<char, gl2_material> top_materials;
 map<char, gl2_material> side_materials;
 gl2_material cursor_mtl;
 wf_mesh cursor_mesh;
+gl3_program program;
 
 const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
 const vector<float> slow_view {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 5, 6};
@@ -297,10 +302,15 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     dlm.material = &cursor_mtl;
 
     drawlist.groups["cursor"].push_back(dlm);
-    gl2_draw_drawlist(drawlist);
+    if (use_gl2) {
+        gl2_draw_drawlist(drawlist);
+    }
+    else {
+        assert(0 && "GL3 not implemented");
+    }
 }
 
-void draw_gl2(const tile_generator &tile_gen)
+void draw(const tile_generator &tile_gen)
 {
     gl2_light();
 
@@ -337,7 +347,12 @@ void draw_gl2(const tile_generator &tile_gen)
 
     draw_mouse_cursor(tile_gen);
 
-    gl2_draw_drawlist(drawlist);
+    if (use_gl2) {
+        gl2_draw_drawlist(drawlist);
+    }
+    else {
+        assert(0 && "GL3 not implemented");
+    }
 }
 
 
@@ -349,7 +364,6 @@ void resize()
     float fov = M_PI * 50.0 / 180.8;
     float aspect = w / (float)h;
     proj_matrix = perspective<float>(fov, aspect, 1, 1e2);
-    check_gl_error();
 }
 
 void move(int n)
@@ -413,8 +427,15 @@ void events()
 int main()
 {
     libs_assert(!SDL_Init(SDL_INIT_VIDEO));
-    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
-    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));
+
+    if (use_gl2) {
+        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
+        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));
+    }
+    else {
+        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
+    }
 
     //set_msaa(1, 4);
     if (!(window = make_window())) {
@@ -436,9 +457,12 @@ int main()
     fprintf(stderr, "GL Renderer: %s\n", glGetString(GL_RENDERER));
     fprintf(stderr, "GL Version: %s\n", glGetString(GL_VERSION));
     fprintf(stderr, "GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
+    check_gl_error();
 
     glewInit();
+    check_gl_error();
     resize();
+    program = gl3_load_program("program.vert", "program.frag");
 
     post_mesh = wf_mesh_from_file("post.obj");
     top_materials = load_tex_mtls(top_texfiles);
@@ -464,7 +488,7 @@ int main()
             perror("gettimeofday");
         }
         events();
-        draw_gl2(tile_gen);
+        draw(tile_gen);
 
         SDL_GL_SwapWindow(window);
         if (!swap_interval) {

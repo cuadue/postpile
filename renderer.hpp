@@ -4,13 +4,13 @@
 
 #include "wavefront.hpp"
 
-template <typename Material>
+template <typename Renderer>
 struct Drawlist {
-    const wf_mesh *mesh;
+    const typename Renderer::Mesh *mesh;
     glm::mat4 view_projection_matrix;
 
     struct Model {
-        Material *material;
+        const typename Renderer::Material *material;
         glm::mat4 model_matrix;
     };
     struct Group {
@@ -23,5 +23,18 @@ struct Drawlist {
 
 struct gl2_material;
 
-typedef Drawlist<gl2_material> DrawlistGl2;
+struct GL2 {
+    typedef wf_mesh Mesh;
+    typedef gl2_material Material;
+};
+
+struct gl3_mesh;
+
+struct GL3 {
+    typedef gl3_mesh Mesh;
+    typedef gl2_material Material;
+};
+
+typedef Drawlist<GL2> DrawlistGl2;
+typedef Drawlist<GL3> DrawlistGL3;
 

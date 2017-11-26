@@ -6,6 +6,11 @@
 #include <vector>
 #include <GL/glew.h>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
 extern "C" {
 #include <SDL.h>
 }
@@ -16,34 +21,6 @@ using std::map;
 using std::string;
 using std::pair;
 using std::vector;
-
-/* Implementation behind the check_gl_error() macro */
-void __check_gl_error(const char *file, int line) {
-    const char *err = "Unknown GL error";
-    switch (glGetError()) {
-    case GL_NO_ERROR: return;
-    #define c(x) case (x): err = #x; break
-    c(GL_INVALID_ENUM);
-    c(GL_INVALID_VALUE);
-    c(GL_INVALID_OPERATION);
-    c(GL_INVALID_FRAMEBUFFER_OPERATION);
-    c(GL_OUT_OF_MEMORY);
-    c(GL_STACK_UNDERFLOW);
-    c(GL_STACK_OVERFLOW);
-    #undef c
-    }
-    fprintf(stderr, "%s:%d: %s\n", file, line, err);
-}
-
-static int has_texture_coords(const wf_mesh &mesh)
-{
-    return mesh.texture2.size() / 2 >= mesh.vertex4.size() / 4;
-}
-
-static int has_normals(const wf_mesh &mesh)
-{
-    return mesh.normal3.size() / 3 >= mesh.vertex4.size() / 4;
-}
 
 gl2_material::gl2_material()
 : shininess(0)
@@ -68,13 +45,13 @@ static void gl2_setup_mesh_data(const wf_mesh &mesh)
     glVertexPointer(4, GL_FLOAT, 0, &mesh.vertex4[0]);
     check_gl_error();
 
-    if (has_normals(mesh)) {
+    if (mesh.has_normals()) {
         glEnableClientState(GL_NORMAL_ARRAY);
         glNormalPointer(GL_FLOAT, 0, &mesh.normal3[0]);
         check_gl_error();
     }
 
-    if (has_texture_coords(mesh)) {
+    if (mesh.has_texture_coords()) {
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         glTexCoordPointer(2, GL_FLOAT, 0, &mesh.texture2[0]);
         check_gl_error();
@@ -170,8 +147,8 @@ GLuint load_texture_2d(SDL_Surface *surf)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
     check_gl_error();
+    glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
 
     if (GLEW_EXT_texture_filter_anisotropic) {
@@ -241,7 +218,7 @@ void gl2_draw_drawlist(const DrawlistGl2& drawlist)
 
     for (const auto &pair : drawlist.groups) {
         const string &group_name = pair.first;
-        map<gl2_material*, vector<glm::mat4>> sorted;
+        map<const gl2_material*, vector<glm::mat4>> sorted;
 
         for (const DrawlistGl2::Model &model : pair.second) {
             sorted[model.material].push_back(model.model_matrix);

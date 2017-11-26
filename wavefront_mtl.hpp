@@ -2,6 +2,8 @@
 #include <vector>
 #include <map>
 #include <string>
+
+#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 
 struct wf_mtl_component {

@@ -627,6 +627,15 @@ struct wf_mesh wf_mesh_from_file(const char *path)
 
     return to_mesh(parse_objfile(fp));
 }
+bool wf_mesh::has_texture_coords() const
+{
+    return texture2.size() / 2 >= vertex4.size() / 4;
+}
+
+bool wf_mesh::has_normals() const
+{
+    return normal3.size() / 3 >= vertex4.size() / 4;
+}
 
 #ifdef TEST
 int main()
