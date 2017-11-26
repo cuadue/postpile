@@ -266,23 +266,6 @@ vector<hex_coord> visible_hexes()
     return hex_range(16, view.center);
 }
 
-void light()
-{
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glShadeModel(GL_SMOOTH);
-    float position[] = {0, 10, 10, 0};
-    float ambient_color[] = {0.25, 0.25, 0.25, 1};
-    float diffuse_color[] = {0.75, 0.75, 0.75, 1};
-    float material[] = {1, 1, 1, 1};
-    float specular_color[] = {0, 0, 0, 0};
-    glLightfv(GL_LIGHT0, GL_POSITION, position);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_color);
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_color);
-    glLightfv(GL_LIGHT0, GL_SPECULAR, specular_color);
-    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material);
-}
-
 bool operator==(const hex_coord &a, const hex_coord &b) {
     return a.q == b.q && a.r == b.r;
 }
@@ -306,10 +289,10 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
-    Drawlist drawlist;
+    DrawlistGl2 drawlist;
     drawlist.mesh = &cursor_mesh;
     drawlist.view_projection_matrix = view_proj;
-    Drawlist::Model dlm;
+    DrawlistGl2::Model dlm;
     dlm.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
     dlm.material = &cursor_mtl;
 
@@ -317,13 +300,11 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     gl2_draw_drawlist(drawlist);
 }
 
-void draw_drawlist(const Drawlist& drawlist);
-
-void draw(const tile_generator &tile_gen)
+void draw_gl2(const tile_generator &tile_gen)
 {
-    light();
+    gl2_light();
 
-    Drawlist drawlist;
+    DrawlistGl2 drawlist;
     drawlist.mesh = &post_mesh;
     drawlist.view_projection_matrix = proj_matrix * view_matrix();
 
@@ -331,8 +312,8 @@ void draw(const tile_generator &tile_gen)
     draw_tile_count = 0;
 
     for (const hex_coord coord : visible_hexes()) {
-            Drawlist::Model top;
-            Drawlist::Model side;
+            DrawlistGl2::Model top;
+            DrawlistGl2::Model side;
             struct point center = hex_to_pixel(coord);
 
             float elevation = tile_value(&tile_gen, center.x, center.y);
@@ -483,7 +464,7 @@ int main()
             perror("gettimeofday");
         }
         events();
-        draw(tile_gen);
+        draw_gl2(tile_gen);
 
         SDL_GL_SwapWindow(window);
         if (!swap_interval) {

@@ -62,7 +62,7 @@ void gl2_material::set_diffuse(const std::vector<GLfloat> &x)
  * mesh is being drawn multiple times, you can call this just once before
  * drawing any number of the same mesh.
  */
-void gl2_setup_mesh_data(const wf_mesh &mesh)
+static void gl2_setup_mesh_data(const wf_mesh &mesh)
 {
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(4, GL_FLOAT, 0, &mesh.vertex4[0]);
@@ -82,7 +82,7 @@ void gl2_setup_mesh_data(const wf_mesh &mesh)
 }
 
 /* Call this once you're done drawing any given mesh */
-void gl2_teardown_mesh_data()
+static void gl2_teardown_mesh_data()
 {
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_NORMAL_ARRAY);
@@ -92,7 +92,7 @@ void gl2_teardown_mesh_data()
 
 /* Call this once before drawing each material. You can draw multiple times,
  * either the same or different meshes */
-void gl2_setup_material(const gl2_material &mat)
+static void gl2_setup_material(const gl2_material &mat)
 {
     // stage 0: light texture
     glActiveTexture(GL_TEXTURE0);
@@ -141,30 +141,19 @@ void gl2_setup_material(const gl2_material &mat)
     glTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
 }
 
-void gl2_teardown_material()
+static void gl2_teardown_material()
 {
     glDisable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D, 0);
     check_gl_error();
 }
 
-void gl2_draw_mesh(const glm::mat4 &matrix, std::vector<wf_group> groups)
+static void gl2_draw_mesh(const glm::mat4 &matrix, std::vector<wf_group> groups)
 {
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(glm::value_ptr(matrix));
 
     for (const wf_group &group : groups) {
-        int n = group.triangle_indices.size();
-        const unsigned *p = &group.triangle_indices[0];
-        glDrawElements(GL_TRIANGLES, n, GL_UNSIGNED_INT, p);
-    }
-}
-
-void gl2_draw_mesh_group(const wf_mesh &mesh, const string &group_name)
-{
-    if (!mesh.groups.count(group_name)) return;
-
-    for (const wf_group &group : mesh.groups.at(group_name)) {
         int n = group.triangle_indices.size();
         const unsigned *p = &group.triangle_indices[0];
         glDrawElements(GL_TRIANGLES, n, GL_UNSIGNED_INT, p);
@@ -241,7 +230,7 @@ gl2_material::gl2_material(
     }
 }
 
-void gl2_draw_drawlist(const Drawlist& drawlist)
+void gl2_draw_drawlist(const DrawlistGl2& drawlist)
 {
     assert(drawlist.mesh);
     const wf_mesh &mesh = *drawlist.mesh;
@@ -254,7 +243,7 @@ void gl2_draw_drawlist(const Drawlist& drawlist)
         const string &group_name = pair.first;
         map<gl2_material*, vector<glm::mat4>> sorted;
 
-        for (const Drawlist::Model &model : pair.second) {
+        for (const DrawlistGl2::Model &model : pair.second) {
             sorted[model.material].push_back(model.model_matrix);
         }
 
@@ -278,5 +267,20 @@ void gl2_draw_drawlist(const Drawlist& drawlist)
     gl2_teardown_mesh_data();
 }
 
-//void gl2_renderer::set_view_projection_matrix(const glm::mat4&);
+void gl2_light()
+{
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glShadeModel(GL_SMOOTH);
+    float position[] = {0, 10, 10, 0};
+    float ambient_color[] = {0.25, 0.25, 0.25, 1};
+    float diffuse_color[] = {0.75, 0.75, 0.75, 1};
+    float material[] = {1, 1, 1, 1};
+    float specular_color[] = {0, 0, 0, 0};
+    glLightfv(GL_LIGHT0, GL_POSITION, position);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuse_color);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient_color);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, specular_color);
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, material);
+}
 
