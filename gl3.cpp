@@ -1,6 +1,7 @@
 #include "gl3.hpp"
 extern "C" {
 #include "gl3_aux.h"
+#include "gl_aux.h"
 }
 #include <glm/gtc/type_ptr.hpp>
 
@@ -9,14 +10,14 @@ using std::map;
 using std::vector;
 using glm::mat4;
 
-GLuint global_program;
+gl3_material::gl3_material() {}
 
-static void setup_material(const gl2_material &mat)
+static void setup_material(const gl3_material &mat)
 {
     (void)mat;
 }
 
-static void teardown_material(const gl2_material &mat)
+static void teardown_material(const gl3_material &mat)
 {
     (void)mat;
 }
@@ -25,6 +26,7 @@ gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
 {
     gl3_program ret;
     ret.program = load_program(vert_file, frag_file);
+    assert(ret.program);
     ret.attribs.vertex = get_attrib_location(ret.program, "vertex_modelspace");
     ret.attribs.uniform_mvp = get_uniform_location(ret.program, "mvp");
     ret.attribs.has_normals = false;
@@ -34,20 +36,28 @@ gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
 
 gl3_group::gl3_group(const wf_group& wf)
 {
+    assert(sizeof wf.triangle_indices[0] == 4);
     glGenBuffers(1, &index_buffer);
     count = wf.triangle_indices.size();
+    fprintf(stderr, "index count: %lu\n", count);
+    unsigned int max = 0;
+    for (auto i : wf.triangle_indices){
+        max = std::max(max, i);
+    }
+    fprintf(stderr, "Max index: %u\n", max);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 count * sizeof(wf.triangle_indices[0]),
+                 count * 4,
                  &wf.triangle_indices[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     check_gl_error();
 }
 
 void gl3_group::draw() const
 {
-    // TODO Setup uniform model matrix
+    assert(index_buffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
-    glDrawArrays(GL_TRIANGLES, 0, count);
+    glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, NULL);
     check_gl_error();
 }
 
@@ -57,15 +67,25 @@ gl3_mesh::gl3_mesh(const wf_mesh& wf)
     assert(sizeof wf.normal3[0] == 4);
     assert(sizeof wf.texture2[0] == 4);
 
+    glGenVertexArrays(1, &vao);
+    check_gl_error();
+    assert(vao);
+    glBindVertexArray(vao);
+
     glGenBuffers(1, &vertex_buffer);
+    assert(vertex_buffer);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glBufferData(GL_ARRAY_BUFFER,
                  4 * wf.vertex4.size(),
                  &wf.vertex4[0], GL_STATIC_DRAW);
+    check_gl_error();
+
+    fprintf(stderr, "Vertices: %lu\n", wf.vertex4.size());
 
     has_normals = wf.has_normals();
     if (has_normals) {
         glGenBuffers(1, &normal_buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
         glBufferData(GL_ARRAY_BUFFER,
                      4 * wf.normal3.size(),
                      &wf.normal3[0], GL_STATIC_DRAW);
@@ -73,7 +93,8 @@ gl3_mesh::gl3_mesh(const wf_mesh& wf)
 
     has_uv = wf.has_texture_coords();
     if (has_uv) {
-        glGenBuffers(1, &normal_buffer);
+        glGenBuffers(1, &uv_buffer);
+        glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
         glBufferData(GL_ARRAY_BUFFER,
                      4 * wf.texture2.size(),
                      &wf.texture2[0], GL_STATIC_DRAW);
@@ -81,30 +102,35 @@ gl3_mesh::gl3_mesh(const wf_mesh& wf)
 
     for (const auto &pair : wf.groups) {
         for (const wf_group &g : pair.second) {
+            fprintf(stderr, "Group %s\n", pair.first.c_str());
             groups[pair.first].push_back(gl3_group(g));
         }
     }
+    glBindVertexArray(0);
     check_gl_error();
 }
 
 void gl3_mesh::setup_mesh_data(const gl3_attributes &attribs) const
 {
+    glBindVertexArray(vao);
     glEnableVertexAttribArray(attribs.vertex);
     glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
     glVertexAttribPointer(attribs.vertex, 4, GL_FLOAT, GL_FALSE, 0, NULL);
+    check_gl_error();
 
     if (has_normals && attribs.has_normals) {
         glEnableVertexAttribArray(attribs.normals);
         glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
         glVertexAttribPointer(attribs.normals, 3, GL_FLOAT, GL_FALSE, 0, NULL);
+        check_gl_error();
     }
 
     if (has_uv && attribs.has_uv) {
         glEnableVertexAttribArray(attribs.uv);
         glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
         glVertexAttribPointer(attribs.uv, 2, GL_FLOAT, GL_FALSE, 0, NULL);
+        check_gl_error();
     }
-    check_gl_error();
 }
 
 void gl3_mesh::teardown_mesh_data(const gl3_attributes &attribs) const
@@ -127,6 +153,9 @@ void gl3_mesh::draw_group(
                            glm::value_ptr(matrix));
         check_gl_error();
     }
+    else {
+        fprintf(stderr, "No MVP uniform\n");
+    }
 
     assert(groups.count(name));
     for (const gl3_group &group : groups.at(name)) {
@@ -134,16 +163,16 @@ void gl3_mesh::draw_group(
     }
 }
 
-void gl3_draw(const DrawlistGL3 &drawlist, const gl3_program &program)
+void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
 {
     glUseProgram(program.program);
     drawlist.mesh->setup_mesh_data(program.attribs);
 
     for (const auto &pair : drawlist.groups) {
         const string &group_name = pair.first;
-        map<const gl2_material*, vector<glm::mat4>> sorted;
+        map<const gl3_material*, vector<glm::mat4>> sorted;
 
-        for (const DrawlistGL3::Model &model : pair.second) {
+        for (const Drawlist::Model &model : pair.second) {
             sorted[model.material].push_back(model.model_matrix);
         }
 
@@ -165,4 +194,65 @@ void gl3_draw(const DrawlistGL3 &drawlist, const gl3_program &program)
 
     drawlist.mesh->teardown_mesh_data(program.attribs);
     check_gl_error();
+}
+
+static GLuint load_texture_2d(SDL_Surface *surf)
+{
+    GLuint ret;
+    glGenTextures(1, &ret);
+    glBindTexture(GL_TEXTURE_2D, ret);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    check_gl_error();
+    //glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+    //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
+
+    SDL_Surface *converted = SDL_ConvertSurfaceFormat(
+            surf, SDL_PIXELFORMAT_RGBA8888, 0);
+    surf = NULL;
+
+    if (converted) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, converted->w, converted->h,
+                     0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, converted->pixels);
+        SDL_FreeSurface(converted);
+        converted = NULL;
+    }
+    else {
+        fprintf(stderr, "Failed to convert texture: %s\n", SDL_GetError());
+        ret = 0;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    return ret;
+}
+
+gl3_material::gl3_material(
+    const wf_material &wf,
+    SDL_Surface *(*load_texture)(const char *path))
+{
+    assert(load_texture);
+
+    for (int i = 0; i < 4; i++) {
+        diffuse[i] = wf.diffuse.color[i];
+        specular[i] = wf.specular.color[i];
+    }
+
+    shininess = wf.specular_exponent;
+
+    string texture_file = wf.diffuse.texture_file;
+
+    if (texture_file.size()) {
+        SDL_Surface *surf;
+        if ((surf = load_texture(texture_file.c_str()))) {
+            texture = load_texture_2d(surf);
+            SDL_FreeSurface(surf);
+        }
+        else {
+            perror(texture_file.c_str());
+            texture = 0;
+        }
+    }
 }

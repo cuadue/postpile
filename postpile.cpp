@@ -22,13 +22,12 @@ extern "C" {
 #include "osn.h"
 #include "hex.h"
 #include "tiles.h"
+#include "gl_aux.h"
 }
 
 #include "wavefront.hpp"
-#include "gl2.hpp"
 #include "gl3.hpp"
 #include "fir_filter.hpp"
-#include "gl_aux.h"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -37,23 +36,21 @@ extern "C" {
 
 #define VIEW_MAX_PITCH (M_PI/2.01)
 #define VIEW_MIN_PITCH (M_PI/5.0)
-#define VIEW_MAX_DISTANCE 80
+#define VIEW_MAX_DISTANCE 200
 #define VIEW_MIN_DISTANCE 10
 
 using namespace std;
 using namespace glm;
 
-const int use_gl2 = 0;
-
 int draw_tile_count = 0;
 
 mat4 proj_matrix;
 vec2 mouse;
-wf_mesh post_mesh;
-map<char, gl2_material> top_materials;
-map<char, gl2_material> side_materials;
-gl2_material cursor_mtl;
-wf_mesh cursor_mesh;
+gl3_mesh post_mesh;
+map<char, gl3_material> top_materials;
+map<char, gl3_material> side_materials;
+gl3_material cursor_mtl;
+gl3_mesh cursor_mesh;
 gl3_program program;
 
 const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
@@ -155,16 +152,16 @@ int popd(int fd)
     return close(fd);
 }
 
-map<char, gl2_material> load_tex_mtls(const map<char, string> &texfiles)
+map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
 {
     int olddir = pushd("tex");
 
-    map<char, gl2_material> ret;
+    map<char, gl3_material> ret;
     for (const auto &p : texfiles) {
         wf_material w;
         w.diffuse.color = vec4(1, 1, 1, 1);
         w.diffuse.texture_file = p.second;
-        ret[p.first] = gl2_material(w, IMG_Load);
+        ret[p.first] = gl3_material(w, IMG_Load);
     }
 
     popd(olddir);
@@ -277,8 +274,7 @@ bool operator==(const hex_coord &a, const hex_coord &b) {
 
 void draw_mouse_cursor(const tile_generator &tile_gen)
 {
-    glDisable(GL_LIGHTING);
-    glDisable(GL_LIGHT0);
+    check_gl_error();
     mat4 vm = view_matrix();
     mat4 view_proj = proj_matrix * vm;
     int window_h = 0, window_w = 0;
@@ -294,27 +290,22 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
-    DrawlistGl2 drawlist;
+    Drawlist drawlist;
     drawlist.mesh = &cursor_mesh;
     drawlist.view_projection_matrix = view_proj;
-    DrawlistGl2::Model dlm;
+    Drawlist::Model dlm;
     dlm.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
     dlm.material = &cursor_mtl;
 
     drawlist.groups["cursor"].push_back(dlm);
-    if (use_gl2) {
-        gl2_draw_drawlist(drawlist);
-    }
-    else {
-        assert(0 && "GL3 not implemented");
-    }
+    gl3_draw(drawlist, program);
 }
 
 void draw(const tile_generator &tile_gen)
 {
-    gl2_light();
+    // TODO gl3_light();
 
-    DrawlistGl2 drawlist;
+    Drawlist drawlist;
     drawlist.mesh = &post_mesh;
     drawlist.view_projection_matrix = proj_matrix * view_matrix();
 
@@ -322,8 +313,8 @@ void draw(const tile_generator &tile_gen)
     draw_tile_count = 0;
 
     for (const hex_coord coord : visible_hexes()) {
-            DrawlistGl2::Model top;
-            DrawlistGl2::Model side;
+            Drawlist::Model top;
+            Drawlist::Model side;
             struct point center = hex_to_pixel(coord);
 
             float elevation = tile_value(&tile_gen, center.x, center.y);
@@ -342,17 +333,15 @@ void draw(const tile_generator &tile_gen)
     }
 
     glEnable(GL_DEPTH_TEST);
+    check_gl_error();
     glDepthFunc(GL_LESS);
+    check_gl_error();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    check_gl_error();
 
     draw_mouse_cursor(tile_gen);
 
-    if (use_gl2) {
-        gl2_draw_drawlist(drawlist);
-    }
-    else {
-        assert(0 && "GL3 not implemented");
-    }
+    gl3_draw(drawlist, program);
 }
 
 
@@ -428,14 +417,8 @@ int main()
 {
     libs_assert(!SDL_Init(SDL_INIT_VIDEO));
 
-    if (use_gl2) {
-        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2));
-        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1));
-    }
-    else {
-        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-        libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
-    }
+    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
+    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
 
     //set_msaa(1, 4);
     if (!(window = make_window())) {
@@ -444,9 +427,12 @@ int main()
     }
 
     libs_assert(SDL_GL_CreateContext(window));
+    check_gl_error();
     bool swap_interval = true;
     if (SDL_GL_SetSwapInterval(-1) < 0) {
+        check_gl_error();
         if (SDL_GL_SetSwapInterval(1) < 0) {
+            check_gl_error();
             fprintf(stderr, "Using sleep, expect poor performance\n");
             swap_interval = false;
         }
@@ -454,22 +440,26 @@ int main()
 
     libs_assert(IMG_Init(IMG_INIT_PNG) == IMG_INIT_PNG);
     fprintf(stderr, "GL Vendor: %s\n", glGetString(GL_VENDOR));
+    check_gl_error();
     fprintf(stderr, "GL Renderer: %s\n", glGetString(GL_RENDERER));
+    check_gl_error();
     fprintf(stderr, "GL Version: %s\n", glGetString(GL_VERSION));
+    check_gl_error();
     fprintf(stderr, "GLSL: %s\n", glGetString(GL_SHADING_LANGUAGE_VERSION));
     check_gl_error();
 
+    glewExperimental = 1;
     glewInit();
     check_gl_error();
     resize();
     program = gl3_load_program("program.vert", "program.frag");
 
-    post_mesh = wf_mesh_from_file("post.obj");
+    post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
+    assert(post_mesh.vao);
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
 
-    cursor_mtl.set_diffuse({1, 0, 0, 0.5});
-    cursor_mesh = wf_mesh_from_file("cursor.obj");
+    cursor_mesh = gl3_mesh(wf_mesh_from_file("cursor.obj"));
 
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };
