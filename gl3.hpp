@@ -17,6 +17,7 @@ struct gl3_attributes {
     bool has_uv;
     GLint uv;
     GLint uniform_mvp;
+    GLint sampler;
 };
 
 struct gl3_program {

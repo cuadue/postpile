@@ -12,14 +12,21 @@ using glm::mat4;
 
 gl3_material::gl3_material() {}
 
-static void setup_material(const gl3_material &mat)
+static void setup_material(const gl3_material &mat, const gl3_attributes &attribs)
 {
     (void)mat;
+
+    if (attribs.has_uv && attribs.uv >= 0) {
+        glUniform1i(attribs.sampler, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, mat.texture);
+    }
 }
 
-static void teardown_material(const gl3_material &mat)
+static void teardown_material(const gl3_material &mat, const gl3_attributes &attribs)
 {
     (void)mat;
+    (void)attribs;
 }
 
 gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
@@ -29,8 +36,10 @@ gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
     assert(ret.program);
     ret.attribs.vertex = get_attrib_location(ret.program, "vertex_modelspace");
     ret.attribs.uniform_mvp = get_uniform_location(ret.program, "mvp");
+    ret.attribs.sampler = get_uniform_location(ret.program, "sampler");
     ret.attribs.has_normals = false;
-    ret.attribs.has_uv = false;
+    ret.attribs.uv = get_attrib_location(ret.program, "vertex_uv");
+    ret.attribs.has_uv = true;
     return ret;
 }
 
@@ -39,12 +48,10 @@ gl3_group::gl3_group(const wf_group& wf)
     assert(sizeof wf.triangle_indices[0] == 4);
     glGenBuffers(1, &index_buffer);
     count = wf.triangle_indices.size();
-    fprintf(stderr, "index count: %lu\n", count);
     unsigned int max = 0;
     for (auto i : wf.triangle_indices){
         max = std::max(max, i);
     }
-    fprintf(stderr, "Max index: %u\n", max);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  count * 4,
@@ -80,8 +87,6 @@ gl3_mesh::gl3_mesh(const wf_mesh& wf)
                  &wf.vertex4[0], GL_STATIC_DRAW);
     check_gl_error();
 
-    fprintf(stderr, "Vertices: %lu\n", wf.vertex4.size());
-
     has_normals = wf.has_normals();
     if (has_normals) {
         glGenBuffers(1, &normal_buffer);
@@ -102,7 +107,6 @@ gl3_mesh::gl3_mesh(const wf_mesh& wf)
 
     for (const auto &pair : wf.groups) {
         for (const wf_group &g : pair.second) {
-            fprintf(stderr, "Group %s\n", pair.first.c_str());
             groups[pair.first].push_back(gl3_group(g));
         }
     }
@@ -153,9 +157,6 @@ void gl3_mesh::draw_group(
                            glm::value_ptr(matrix));
         check_gl_error();
     }
-    else {
-        fprintf(stderr, "No MVP uniform\n");
-    }
 
     assert(groups.count(name));
     for (const gl3_group &group : groups.at(name)) {
@@ -183,12 +184,12 @@ void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
 
         for (const auto &pair : sorted) {
             assert(pair.first);
-            setup_material(*pair.first);
+            setup_material(*pair.first, program.attribs);
             for (const glm::mat4 &model_matrix : pair.second) {
                 mat4 mvp = drawlist.view_projection_matrix * model_matrix;
                 drawlist.mesh->draw_group(mvp, group_name, program.attribs);
             }
-            teardown_material(*pair.first);
+            teardown_material(*pair.first, program.attribs);
         }
     }
 
@@ -204,7 +205,7 @@ static GLuint load_texture_2d(SDL_Surface *surf)
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);//GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     check_gl_error();
     //glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
@@ -217,6 +218,7 @@ static GLuint load_texture_2d(SDL_Surface *surf)
     if (converted) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, converted->w, converted->h,
                      0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, converted->pixels);
+        check_gl_error();
         SDL_FreeSurface(converted);
         converted = NULL;
     }
@@ -225,7 +227,6 @@ static GLuint load_texture_2d(SDL_Surface *surf)
         ret = 0;
     }
 
-    glBindTexture(GL_TEXTURE_2D, 0);
     return ret;
 }
 
