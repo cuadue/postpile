@@ -205,11 +205,18 @@ static GLuint load_texture_2d(SDL_Surface *surf)
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);//GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     check_gl_error();
-    //glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
-    //glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
+
+    float aniso;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &aniso);
+    if (aniso > 0) {
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, aniso);
+    }
+    else {
+        fprintf(stderr, "Anisotropic filtering not supported\n");
+    }
 
     SDL_Surface *converted = SDL_ConvertSurfaceFormat(
             surf, SDL_PIXELFORMAT_RGBA8888, 0);
@@ -226,6 +233,7 @@ static GLuint load_texture_2d(SDL_Surface *surf)
         fprintf(stderr, "Failed to convert texture: %s\n", SDL_GetError());
         ret = 0;
     }
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     return ret;
 }
