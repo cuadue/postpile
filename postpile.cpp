@@ -36,7 +36,7 @@ extern "C" {
 
 #define VIEW_MAX_PITCH (M_PI/2.01)
 #define VIEW_MIN_PITCH (M_PI/5.0)
-#define VIEW_MAX_DISTANCE 200
+#define VIEW_MAX_DISTANCE 50
 #define VIEW_MIN_DISTANCE 10
 
 using namespace std;
@@ -72,6 +72,10 @@ struct {
     .radius = fir_filter<float>(slow_view, 1),
     .center = {0, 0},
 };
+
+#define NOON 48
+#define MIDNIGHT (2*NOON)
+int time_of_day = 0;
 
 fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
@@ -301,6 +305,13 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     gl3_draw(drawlist, program);
 }
 
+glm::vec3 light_direction()
+{
+    float x = sin(M_PI * time_of_day / NOON);
+    float z = cos(M_PI * time_of_day / NOON);
+    return glm::normalize(glm::vec3(x, x + z, z));
+}
+
 void draw(const tile_generator &tile_gen)
 {
     // TODO gl3_light();
@@ -308,6 +319,9 @@ void draw(const tile_generator &tile_gen)
     Drawlist drawlist;
     drawlist.mesh = &post_mesh;
     drawlist.view_projection_matrix = proj_matrix * view_matrix();
+
+    drawlist.lights.direction.push_back(light_direction());
+    drawlist.lights.color.push_back(glm::vec3(0.9, 0.7, 0.7));
 
     // For benchmarking
     draw_tile_count = 0;
@@ -358,6 +372,8 @@ void resize()
 void move(int n)
 {
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
+    time_of_day++;
+    time_of_day %= MIDNIGHT;
 }
 
 void zoom_in(float dir=1) { view.distance.add(0.5 * dir); }

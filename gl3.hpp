@@ -11,13 +11,20 @@
 
 // The arguments to glEnableVertexAttribArray and glVertexAttribPointer
 struct gl3_attributes {
+    // Inputs
     GLint vertex;
     bool has_normals;
     GLint normals;
     bool has_uv;
     GLint uv;
-    GLint uniform_mvp;
+
+    // Uniforms
+    GLint mvp;
     GLint sampler;
+    GLint model_matrix;
+    GLint light_direction;
+    GLint light_color;
+    GLint num_lights;
 };
 
 struct gl3_program {
@@ -57,12 +64,18 @@ struct gl3_mesh {
     gl3_mesh() {}
     explicit gl3_mesh(const wf_mesh &wf);
     void draw_group(
-        const glm::mat4 &matrix, const std::string &name, const gl3_attributes &attribs) const;
+        const glm::mat4 &model, const glm::mat4 &mvp, const std::string &name,
+        const gl3_attributes &attribs) const;
     void setup_mesh_data(const gl3_attributes &attribs) const;
     void teardown_mesh_data(const gl3_attributes &attribs) const;
 };
 
 gl3_program gl3_load_program(const char *vert_file, const char *frag_file);
+
+struct Lights {
+    std::vector<glm::vec3> direction;
+    std::vector<glm::vec3> color;
+};
 
 struct Drawlist {
     const gl3_mesh *mesh;
@@ -78,6 +91,7 @@ struct Drawlist {
     };
     // Map group name to a bunch of models drawing that group
     std::map<std::string, std::vector<Model>> groups;
+    Lights lights;
 };
 
 void gl3_draw(const Drawlist &drawlist, const gl3_program &program);

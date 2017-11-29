@@ -16,7 +16,7 @@ static void setup_material(const gl3_material &mat, const gl3_attributes &attrib
 {
     (void)mat;
 
-    if (attribs.has_uv && attribs.uv >= 0) {
+    if (attribs.uv >= 0) {
         glUniform1i(attribs.sampler, 0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mat.texture);
@@ -35,11 +35,17 @@ gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
     ret.program = load_program(vert_file, frag_file);
     assert(ret.program);
     ret.attribs.vertex = get_attrib_location(ret.program, "vertex_modelspace");
-    ret.attribs.uniform_mvp = get_uniform_location(ret.program, "mvp");
-    ret.attribs.sampler = get_uniform_location(ret.program, "sampler");
-    ret.attribs.has_normals = false;
+    ret.attribs.normals = get_attrib_location(ret.program, "normal_modelspace");
     ret.attribs.uv = get_attrib_location(ret.program, "vertex_uv");
-    ret.attribs.has_uv = true;
+
+    ret.attribs.mvp = get_uniform_location(ret.program, "mvp");
+    ret.attribs.sampler = get_uniform_location(ret.program, "sampler");
+    ret.attribs.model_matrix = get_uniform_location(ret.program, "model");
+    ret.attribs.light_direction = get_uniform_location(ret.program, "light_direction");
+
+    ret.attribs.num_lights = get_uniform_location(ret.program, "num_lights");
+    ret.attribs.light_direction = get_uniform_location(ret.program, "light_direction");
+    ret.attribs.light_color = get_uniform_location(ret.program, "light_color");
     return ret;
 }
 
@@ -122,14 +128,14 @@ void gl3_mesh::setup_mesh_data(const gl3_attributes &attribs) const
     glVertexAttribPointer(attribs.vertex, 4, GL_FLOAT, GL_FALSE, 0, NULL);
     check_gl_error();
 
-    if (has_normals && attribs.has_normals) {
+    if (has_normals) {
         glEnableVertexAttribArray(attribs.normals);
         glBindBuffer(GL_ARRAY_BUFFER, normal_buffer);
         glVertexAttribPointer(attribs.normals, 3, GL_FLOAT, GL_FALSE, 0, NULL);
         check_gl_error();
     }
 
-    if (has_uv && attribs.has_uv) {
+    if (has_uv) {
         glEnableVertexAttribArray(attribs.uv);
         glBindBuffer(GL_ARRAY_BUFFER, uv_buffer);
         glVertexAttribPointer(attribs.uv, 2, GL_FLOAT, GL_FALSE, 0, NULL);
@@ -140,34 +146,47 @@ void gl3_mesh::setup_mesh_data(const gl3_attributes &attribs) const
 void gl3_mesh::teardown_mesh_data(const gl3_attributes &attribs) const
 {
     glDisableVertexAttribArray(attribs.vertex);
-    if (has_normals && attribs.has_normals) {
+    if (has_normals) {
         glDisableVertexAttribArray(attribs.normals);
     }
-    if (has_uv && attribs.has_uv) {
+    if (has_uv) {
         glDisableVertexAttribArray(attribs.uv);
     }
     check_gl_error();
 }
 
 void gl3_mesh::draw_group(
-    const mat4 &matrix, const string &name, const gl3_attributes &attribs) const
+    const mat4 &model, const mat4 &mvp, const string &name,
+    const gl3_attributes &attribs) const
 {
-    if (attribs.uniform_mvp >= 0) {
-        glUniformMatrix4fv(attribs.uniform_mvp, 1, GL_FALSE,
-                           glm::value_ptr(matrix));
-        check_gl_error();
-    }
+    glUniformMatrix4fv(attribs.mvp, 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(attribs.model_matrix, 1, GL_FALSE, glm::value_ptr(model));
 
     assert(groups.count(name));
     for (const gl3_group &group : groups.at(name)) {
         group.draw();
     }
+
+    check_gl_error();
 }
 
 void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
 {
     glUseProgram(program.program);
     drawlist.mesh->setup_mesh_data(program.attribs);
+
+    int light_count = std::min(drawlist.lights.direction.size(),
+                               drawlist.lights.color.size());
+
+    if (light_count) {
+        glUniform1i(program.attribs.num_lights, light_count);
+
+        glUniform3fv(program.attribs.light_direction, light_count,
+                     glm::value_ptr(drawlist.lights.direction[0]));
+
+        glUniform3fv(program.attribs.light_color, light_count,
+                     glm::value_ptr(drawlist.lights.color[0]));
+    }
 
     for (const auto &pair : drawlist.groups) {
         const string &group_name = pair.first;
@@ -187,7 +206,7 @@ void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
             setup_material(*pair.first, program.attribs);
             for (const glm::mat4 &model_matrix : pair.second) {
                 mat4 mvp = drawlist.view_projection_matrix * model_matrix;
-                drawlist.mesh->draw_group(mvp, group_name, program.attribs);
+                drawlist.mesh->draw_group(model_matrix, mvp, group_name, program.attribs);
             }
             teardown_material(*pair.first, program.attribs);
         }
