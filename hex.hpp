@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <algorithm>
 
 #ifndef M_PI
@@ -15,6 +16,17 @@ struct Point {
 template <typename T>
 struct CubeCoord {
     T x, y, z;
+
+    template <typename U>
+    static CubeCoord<T> from(const CubeCoord<U>& other)
+    {
+        CubeCoord<T> ret = {
+            .x = static_cast<T>(other.x),
+            .y = static_cast<T>(other.y),
+            .z = static_cast<T>(other.z)
+        };
+        return ret;
+    }
 };
 
 template <typename T>
@@ -67,7 +79,7 @@ CubeCoord<T> hex_to_cube(const HexCoord<T>& h)
 }
 
 template <typename T>
-CubeCoord<T> cube_round(T x, T y, T z)
+CubeCoord<int> cube_round(T x, T y, T z)
 {
     int rx = lrint(x);
     int ry = lrint(y);
@@ -81,7 +93,7 @@ CubeCoord<T> cube_round(T x, T y, T z)
     else if (dy > dz)       ry = -rx - rz;
     else                    rz = -rx - ry;
 
-    CubeCoord<T> ret = { .x = rx, .y = ry, .z = rz };
+    CubeCoord<int> ret = { .x = rx, .y = ry, .z = rz };
     assert(ret.x + ret.y + ret.z == 0);
     return ret;
 }
@@ -107,23 +119,18 @@ Point<double> hex_to_pixel(const HexCoord<T>& h)
     return p;
 }
 
-template <typename T>
-HexCoord<T> pixel_to_hex(double x, double y)
-{
-    double q = x * 2.0 / 3.0;
-    double r = -x / 3.0 + y * SQRT_3 / 3.0;
+HexCoord<double> pixel_to_hex_double(double x, double y);
 
-    return cube_to_hex<T>(cube_round<T>(q, r, -q-r));
-}
+HexCoord<int> pixel_to_hex_int(double x, double y);
 
 template <typename T>
 T hex_distance(const HexCoord<T>& a, const HexCoord<T>& b)
 {
     CubeCoord<T> ac = hex_to_cube(a);
     CubeCoord<T> bc = hex_to_cube(b);
-    T dx = abs(ac.x - bc.x);
-    T dy = abs(ac.y - bc.y);
-    T dz = abs(ac.z - bc.z);
+    T dx = std::abs(ac.x - bc.x);
+    T dy = std::abs(ac.y - bc.y);
+    T dz = std::abs(ac.z - bc.z);
     T ret = std::max(dx, dy);
     return std::max(ret, dz);
 }

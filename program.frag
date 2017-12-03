@@ -3,6 +3,7 @@
 uniform sampler2D diffuse_map;
 uniform mat3 N;
 
+uniform float visibility;
 uniform int num_lights;
 uniform vec3 light_vec[16];
 uniform vec3 light_color[16];
@@ -27,5 +28,6 @@ void main()
 
     color = texture(diffuse_map, uv).rgb *
             clamp(fadeout, 0, 1) *
-            clamp(atan(ambient + light), 0, 1);
+            clamp(atan(ambient + light), 0, 1) *
+            clamp(visibility, 0, 1);
 }

@@ -29,6 +29,7 @@ typedef Uniform<glm::mat4> UniformMat4;
 typedef Uniform<glm::mat3> UniformMat3;
 typedef Uniform<std::vector<glm::vec3>> UniformVec3Vec;
 typedef Uniform<int> UniformInt;
+typedef Uniform<float> UniformFloat;
 
 // The arguments to glEnableVertexAttribArray and glVertexAttribPointer
 struct gl3_attributes {
@@ -44,6 +45,7 @@ struct gl3_attributes {
     UniformMat3 N;    // normal matrix
 
     UniformInt diffuse_map;
+    UniformFloat visibility;
 
     UniformInt num_lights;
     UniformVec3Vec light_vec;
@@ -114,6 +116,7 @@ struct Drawlist {
     struct Model {
         const gl3_material *material;
         glm::mat4 model_matrix;
+        float visibility;
     };
     struct Group {
         const char *group_name;

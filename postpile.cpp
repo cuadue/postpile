@@ -53,26 +53,36 @@ gl3_material cursor_mtl;
 gl3_mesh cursor_mesh;
 gl3_program program;
 
-const vector<float> view_filter_coeffs {1, 2, 3, 4, 5, 5, 5, 5, 4, 3, 2, 1};
-const vector<float> slow_view {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 5, 6};
+// scipy.signal.firwin(40, 0.01)
+const vector<float> view_filter_coeffs {
+    0.00358851,  0.00388049,  0.00470869,  0.00606107,  0.00791063,
+    0.01021609,  0.01292289,  0.01596464,  0.01926486,  0.0227391 ,
+    0.02629727,  0.02984614,  0.03329195,  0.03654306,  0.03951257,
+    0.04212075,  0.04429733,  0.04598353,  0.04713372,  0.04771672,
+    0.04771672,  0.04713372,  0.04598353,  0.04429733,  0.04212075,
+    0.03951257,  0.03654306,  0.03329195,  0.02984614,  0.02629727,
+    0.0227391 ,  0.01926486,  0.01596464,  0.01292289,  0.01021609,
+    0.00791063,  0.00606107,  0.00470869,  0.00388049,  0.00358851
+};
 
-#define MAX_VIEW_DISTANCE 16
+#define MAX_VIEW_DISTANCE 8
+#define CLIFF_HEIGHT 2
 
 int bail = 0;
 SDL_Window *window;
 struct {
     int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
     filtered_value<float> pitch, distance;
-    fir_filter<float> radius;
     HexCoord<int> center;
+    HexCoord<double> filtered_center;
 } view = {
     .yaw = 0,
     .pitch = filtered_value<float>(view_filter_coeffs,
         VIEW_MAX_PITCH, VIEW_MIN_PITCH),
     .distance = filtered_value<float>(view_filter_coeffs,
         VIEW_MAX_DISTANCE, VIEW_MIN_DISTANCE),
-    .radius = fir_filter<float>(slow_view, 1),
     .center = {0, 0},
+    .filtered_center = {0, 0},
 };
 
 #define NOON 48
@@ -196,6 +206,7 @@ glm::mat4 view_matrix()
 
     glm::vec3 target_center(c.x, c.y, 0);
     vec3 center = center_filter.next(target_center);
+    view.filtered_center = pixel_to_hex_double(center.x, center.y);
     vec3 eye = center + relative_eye;
 
     return glm::lookAt(eye, center, vec3(0, 0, 1));
@@ -233,7 +244,7 @@ HexCoord<int> hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
     double x = a.x + t * (b.x - a.x);
     double y = a.y + t * (b.y - a.y);
 
-    HexCoord<int> ret = pixel_to_hex<int>(x, y);
+    HexCoord<int> ret = pixel_to_hex_int(x, y);
     return ret;
 }
 
@@ -309,6 +320,20 @@ Light astro_light(float time, glm::vec3 base_color, int bias_sign)
     return Light { .direction = direction, .color = color };
 }
 
+double cliff(double distance)
+{
+    distance = std::abs(distance);
+    if (distance <= MAX_VIEW_DISTANCE) return 0;
+    if (distance >= MAX_VIEW_DISTANCE + 1) return 1;
+    double ret = 1 - cos(0.5 * M_PI * (distance - MAX_VIEW_DISTANCE));
+    if (ret < 0) {
+        fprintf(stderr, "dist %g -> cliff %g\n", distance, ret);
+    }
+    assert(ret >= 0);
+    assert(ret <= 1);
+    return ret;
+}
+
 void draw(const tile_generator &tile_gen)
 {
     // TODO gl3_light();
@@ -328,19 +353,23 @@ void draw(const tile_generator &tile_gen)
         Drawlist::Model top;
         Drawlist::Model side;
         Point<double> center = hex_to_pixel(coord);
-        /*
         double distance = hex_distance(
             HexCoord<double>::from(coord),
-            HexCoord<double>::from(view.center));
-        */
+            view.filtered_center);
 
         float elevation = tile_value(&tile_gen, center.x, center.y);
-        mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
+
+        mat4 mm = hex_model_matrix(coord.q, coord.r,
+            elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
+
         char top_tile = float_index(top_tileset, elevation);
         char side_tile = float_index(side_tileset, elevation);
 
         top.model_matrix = mm;
         side.model_matrix = mm;
+        top.visibility = 1 - cliff(distance);
+        side.visibility = 1 - cliff(distance);
+
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
 

@@ -47,6 +47,15 @@ void Uniform<int>::set(const int &value) const
     check_gl_error();
 }
 
+template<>
+void Uniform<float>::set(const float &value) const
+{
+    assert(location != UINT_MAX);
+    check_gl_error();
+    glUniform1f(location, value);
+    check_gl_error();
+}
+
 gl3_material::gl3_material() {}
 
 static void setup_material(const gl3_material &mat, const gl3_attributes &attribs)
@@ -73,6 +82,7 @@ gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
     ret.attribs.MVP.init(program, "MVP");
     ret.attribs.N.init(program, "N");
 
+    ret.attribs.visibility.init(program, "visibility");
     ret.attribs.diffuse_map.init(program, "diffuse_map");
 
     ret.attribs.num_lights.init(program, "num_lights");
@@ -216,10 +226,10 @@ void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
 
     for (const auto &pair : drawlist.groups) {
         const string &group_name = pair.first;
-        map<const gl3_material*, vector<glm::mat4>> grouped;
+        map<const gl3_material*, vector<const Drawlist::Model*>> grouped;
 
         for (const Drawlist::Model &model : pair.second) {
-            grouped[model.material].push_back(model.model_matrix);
+            grouped[model.material].push_back(&model);
         }
 
         if (!drawlist.mesh->groups.count(group_name)) {
@@ -230,10 +240,11 @@ void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
         for (const auto &pair : grouped) {
             assert(pair.first);
             setup_material(*pair.first, program.attribs);
-            for (const glm::mat4 &mm : pair.second) {
-                mat4 mvp = view_projection * mm;
+            for (const auto &model : pair.second) {
+                mat4 mvp = view_projection * model->model_matrix;
                 program.attribs.MVP.set(mvp);
-                glm::mat3 N = normal_matrix(mm);
+                program.attribs.visibility.set(model->visibility);
+                glm::mat3 N = normal_matrix(model->model_matrix);
                 program.attribs.N.set(N);
                 drawlist.mesh->draw_group(group_name);
             }
