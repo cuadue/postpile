@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdlib.h>
 
 #include "hex.h"
 
@@ -115,4 +116,11 @@ struct hex_coord pixel_to_hex(double x, double y)
     double r = -x / 3.0 + y * SQRT_3 / 3.0;
 
     return cube_to_hex(cube_round(q, r, -q-r));
+}
+
+int hex_distance(struct hex_coord a, struct hex_coord b)
+{
+    struct cube_coord ac = hex_to_cube(a);
+    struct cube_coord bc = hex_to_cube(b);
+    return abs(ac.x - bc.x) + abs(ac.y - bc.y) + abs(ac.z - bc.z);
 }

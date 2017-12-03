@@ -53,8 +53,10 @@ gl3_material cursor_mtl;
 gl3_mesh cursor_mesh;
 gl3_program program;
 
-const vector<float> view_filter_coeffs {0.2, 0.3, 0.3, 0.2};
+const vector<float> view_filter_coeffs {1, 2, 3, 4, 5, 5, 5, 5, 4, 3, 2, 1};
 const vector<float> slow_view {1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 4, 5, 6};
+
+#define MAX_VIEW_DISTANCE 16
 
 int bail = 0;
 SDL_Window *window;
@@ -276,7 +278,7 @@ vector<hex_coord> hex_range(int n, const hex_coord &center)
 
 vector<hex_coord> visible_hexes()
 {
-    return hex_range(16, view.center);
+    return hex_range(MAX_VIEW_DISTANCE, view.center);
 }
 
 bool operator==(const hex_coord &a, const hex_coord &b) {
@@ -298,6 +300,11 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     if (std::find(visible.cbegin(), visible.cend(), mouse_hex) == visible.cend()) {
         return;
     }
+    int distance = hex_distance(mouse_hex, view.center);
+    if (distance >= MAX_VIEW_DISTANCE) {
+        return;
+    }
+
     struct point center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
