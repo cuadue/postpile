@@ -75,7 +75,14 @@ struct {
 
 #define NOON 48
 #define MIDNIGHT (2*NOON)
+#define HORIZON 0.2
 int time_of_day = 0;
+const glm::vec3 sun_color(1, 0.9, 0.9);
+const glm::vec3 moon_color(0.3, 0.4, 0.5);
+
+#define YEAR_LENGTH 73
+#define LATITUDE 0.4
+int day_of_year = 0;
 
 fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
@@ -296,7 +303,8 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
 
     Drawlist drawlist;
     drawlist.mesh = &cursor_mesh;
-    drawlist.view_projection_matrix = view_proj;
+    drawlist.view = view_matrix();
+    drawlist.projection = proj_matrix;
     Drawlist::Model dlm;
     dlm.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
     dlm.material = &cursor_mtl;
@@ -305,11 +313,22 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     gl3_draw(drawlist, program);
 }
 
-glm::vec3 light_direction()
+float astro_bias()
 {
-    float x = sin(M_PI * time_of_day / NOON);
-    float z = cos(M_PI * time_of_day / NOON);
-    return glm::normalize(glm::vec3(x, x + z, z));
+    float t = (float)day_of_year + (float)time_of_day / MIDNIGHT;
+    return LATITUDE * sin(t / YEAR_LENGTH);
+}
+
+Light astro_light(float time, glm::vec3 base_color, int bias_sign)
+{
+    float angle = 2.0 * M_PI * time / (float)MIDNIGHT;
+    float x = sin(angle);
+    float y = cos(angle) + bias_sign * astro_bias();
+    glm::vec3 direction(x, 0, y);
+
+    float brightness = (y - HORIZON) / HORIZON;
+    glm::vec3 color = CLAMP(brightness, 0, 1) * base_color;
+    return Light { .direction = direction, .color = color };
 }
 
 void draw(const tile_generator &tile_gen)
@@ -318,10 +337,11 @@ void draw(const tile_generator &tile_gen)
 
     Drawlist drawlist;
     drawlist.mesh = &post_mesh;
-    drawlist.view_projection_matrix = proj_matrix * view_matrix();
+    drawlist.view = view_matrix();
+    drawlist.projection = proj_matrix;
 
-    drawlist.lights.direction.push_back(light_direction());
-    drawlist.lights.color.push_back(glm::vec3(0.9, 0.7, 0.7));
+    drawlist.lights.put(astro_light(time_of_day, sun_color, 1));
+    drawlist.lights.put(astro_light(NOON + time_of_day * 0.93, moon_color, -1));
 
     // For benchmarking
     draw_tile_count = 0;
@@ -353,7 +373,7 @@ void draw(const tile_generator &tile_gen)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     check_gl_error();
 
-    draw_mouse_cursor(tile_gen);
+    //draw_mouse_cursor(tile_gen);
 
     gl3_draw(drawlist, program);
 }
@@ -373,6 +393,10 @@ void move(int n)
 {
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
     time_of_day++;
+    if (time_of_day > MIDNIGHT) {
+        day_of_year++;
+        day_of_year %= YEAR_LENGTH;
+    }
     time_of_day %= MIDNIGHT;
 }
 

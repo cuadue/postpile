@@ -1,51 +1,83 @@
+#include <iostream>
 #include "gl3.hpp"
 extern "C" {
 #include "gl3_aux.h"
 #include "gl_aux.h"
 }
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/io.hpp>
 
 using std::string;
 using std::map;
 using std::vector;
 using glm::mat4;
 
+template<>
+void Uniform<glm::mat4>::set(const glm::mat4 &value) const
+{
+    assert(location != UINT_MAX);
+    check_gl_error();
+    glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
+    check_gl_error();
+}
+
+template<>
+void Uniform<glm::mat3>::set(const glm::mat3 &value) const
+{
+    assert(location != UINT_MAX);
+    check_gl_error();
+    glUniformMatrix3fv(location, 1, GL_FALSE, glm::value_ptr(value));
+    check_gl_error();
+}
+
+template<>
+void Uniform<std::vector<glm::vec3>>::set(const std::vector<glm::vec3> &value) const
+{
+    assert(location != UINT_MAX);
+    glUniform3fv(location, value.size(), glm::value_ptr(value[0]));
+    check_gl_error();
+}
+
+template<>
+void Uniform<int>::set(const int &value) const
+{
+    assert(location != UINT_MAX);
+    check_gl_error();
+    glUniform1i(location, value);
+    check_gl_error();
+}
+
 gl3_material::gl3_material() {}
 
 static void setup_material(const gl3_material &mat, const gl3_attributes &attribs)
 {
-    (void)mat;
-
     if (attribs.uv >= 0) {
-        glUniform1i(attribs.sampler, 0);
+        attribs.diffuse_map.set(0);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, mat.texture);
     }
-}
-
-static void teardown_material(const gl3_material &mat, const gl3_attributes &attribs)
-{
-    (void)mat;
-    (void)attribs;
 }
 
 gl3_program gl3_load_program(const char *vert_file, const char *frag_file)
 {
     gl3_program ret;
     ret.program = load_program(vert_file, frag_file);
+    GLuint program = ret.program;
     assert(ret.program);
-    ret.attribs.vertex = get_attrib_location(ret.program, "vertex_modelspace");
-    ret.attribs.normals = get_attrib_location(ret.program, "normal_modelspace");
+
+    // TODO improve attribs
+    ret.attribs.vertex = get_attrib_location(ret.program, "vertex");
+    ret.attribs.normals = get_attrib_location(ret.program, "normal");
     ret.attribs.uv = get_attrib_location(ret.program, "vertex_uv");
 
-    ret.attribs.mvp = get_uniform_location(ret.program, "mvp");
-    ret.attribs.sampler = get_uniform_location(ret.program, "sampler");
-    ret.attribs.model_matrix = get_uniform_location(ret.program, "model");
-    ret.attribs.light_direction = get_uniform_location(ret.program, "light_direction");
+    ret.attribs.MVP.init(program, "MVP");
+    ret.attribs.N.init(program, "N");
 
-    ret.attribs.num_lights = get_uniform_location(ret.program, "num_lights");
-    ret.attribs.light_direction = get_uniform_location(ret.program, "light_direction");
-    ret.attribs.light_color = get_uniform_location(ret.program, "light_color");
+    ret.attribs.diffuse_map.init(program, "diffuse_map");
+
+    ret.attribs.num_lights.init(program, "num_lights");
+    ret.attribs.light_vec.init(program, "light_vec");
+    ret.attribs.light_color.init(program, "light_color");
     return ret;
 }
 
@@ -155,13 +187,8 @@ void gl3_mesh::teardown_mesh_data(const gl3_attributes &attribs) const
     check_gl_error();
 }
 
-void gl3_mesh::draw_group(
-    const mat4 &model, const mat4 &mvp, const string &name,
-    const gl3_attributes &attribs) const
+void gl3_mesh::draw_group(const string &name) const
 {
-    glUniformMatrix4fv(attribs.mvp, 1, GL_FALSE, glm::value_ptr(mvp));
-    glUniformMatrix4fv(attribs.model_matrix, 1, GL_FALSE, glm::value_ptr(model));
-
     assert(groups.count(name));
     for (const gl3_group &group : groups.at(name)) {
         group.draw();
@@ -170,30 +197,29 @@ void gl3_mesh::draw_group(
     check_gl_error();
 }
 
+glm::mat3 normal_matrix(const mat4 &model)
+{
+    //return glm::transpose(glm::inverse(glm::mat3(model)));
+    (void)model;
+    return glm::mat3(1);
+}
+
 void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
 {
     glUseProgram(program.program);
     drawlist.mesh->setup_mesh_data(program.attribs);
+    glm::mat4 view_projection = drawlist.projection * drawlist.view;
 
-    int light_count = std::min(drawlist.lights.direction.size(),
-                               drawlist.lights.color.size());
-
-    if (light_count) {
-        glUniform1i(program.attribs.num_lights, light_count);
-
-        glUniform3fv(program.attribs.light_direction, light_count,
-                     glm::value_ptr(drawlist.lights.direction[0]));
-
-        glUniform3fv(program.attribs.light_color, light_count,
-                     glm::value_ptr(drawlist.lights.color[0]));
-    }
+    program.attribs.num_lights.set(drawlist.lights.direction.size());
+    program.attribs.light_vec.set(drawlist.lights.direction);
+    program.attribs.light_color.set(drawlist.lights.color);
 
     for (const auto &pair : drawlist.groups) {
         const string &group_name = pair.first;
-        map<const gl3_material*, vector<glm::mat4>> sorted;
+        map<const gl3_material*, vector<glm::mat4>> grouped;
 
         for (const Drawlist::Model &model : pair.second) {
-            sorted[model.material].push_back(model.model_matrix);
+            grouped[model.material].push_back(model.model_matrix);
         }
 
         if (!drawlist.mesh->groups.count(group_name)) {
@@ -201,14 +227,16 @@ void gl3_draw(const Drawlist &drawlist, const gl3_program &program)
             abort();
         }
 
-        for (const auto &pair : sorted) {
+        for (const auto &pair : grouped) {
             assert(pair.first);
             setup_material(*pair.first, program.attribs);
-            for (const glm::mat4 &model_matrix : pair.second) {
-                mat4 mvp = drawlist.view_projection_matrix * model_matrix;
-                drawlist.mesh->draw_group(model_matrix, mvp, group_name, program.attribs);
+            for (const glm::mat4 &mm : pair.second) {
+                mat4 mvp = view_projection * mm;
+                program.attribs.MVP.set(mvp);
+                glm::mat3 N = normal_matrix(mm);
+                program.attribs.N.set(N);
+                drawlist.mesh->draw_group(group_name);
             }
-            teardown_material(*pair.first, program.attribs);
         }
     }
 

@@ -6,8 +6,29 @@
 #include <GL/glew.h>
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+extern "C" {
+#include <stdio.h>
+#include "gl3_aux.h"
+}
 
 #include "wavefront.hpp"
+
+template <typename T>
+struct Uniform {
+    Uniform() {location = UINT_MAX;}
+    void init(GLuint program, const char *_name) {
+        location = get_uniform_location(program, _name);
+        name = _name;
+    }
+    const char *name;
+    GLuint location;
+    void set(const T &value) const;
+};
+
+typedef Uniform<glm::mat4> UniformMat4;
+typedef Uniform<glm::mat3> UniformMat3;
+typedef Uniform<std::vector<glm::vec3>> UniformVec3Vec;
+typedef Uniform<int> UniformInt;
 
 // The arguments to glEnableVertexAttribArray and glVertexAttribPointer
 struct gl3_attributes {
@@ -19,12 +40,14 @@ struct gl3_attributes {
     GLint uv;
 
     // Uniforms
-    GLint mvp;
-    GLint sampler;
-    GLint model_matrix;
-    GLint light_direction;
-    GLint light_color;
-    GLint num_lights;
+    UniformMat4 MVP;  // model view projection matrix
+    UniformMat3 N;    // normal matrix
+
+    UniformInt diffuse_map;
+
+    UniformInt num_lights;
+    UniformVec3Vec light_vec;
+    UniformVec3Vec light_color;
 };
 
 struct gl3_program {
@@ -63,23 +86,30 @@ struct gl3_mesh {
 
     gl3_mesh() {}
     explicit gl3_mesh(const wf_mesh &wf);
-    void draw_group(
-        const glm::mat4 &model, const glm::mat4 &mvp, const std::string &name,
-        const gl3_attributes &attribs) const;
+    void draw_group(const std::string &name) const;
     void setup_mesh_data(const gl3_attributes &attribs) const;
     void teardown_mesh_data(const gl3_attributes &attribs) const;
 };
 
 gl3_program gl3_load_program(const char *vert_file, const char *frag_file);
 
+struct Light {
+    glm::vec3 direction, color;
+};
+
 struct Lights {
     std::vector<glm::vec3> direction;
     std::vector<glm::vec3> color;
+    void put(const Light &l) {
+        direction.push_back(glm::normalize(l.direction));
+        color.push_back(l.color);
+    }
 };
 
 struct Drawlist {
     const gl3_mesh *mesh;
-    glm::mat4 view_projection_matrix;
+    glm::mat4 view;
+    glm::mat4 projection;
 
     struct Model {
         const gl3_material *material;
