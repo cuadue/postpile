@@ -354,23 +354,23 @@ void draw(const tile_generator &tile_gen)
     draw_tile_count = 0;
 
     for (const hex_coord coord : visible_hexes()) {
-            Drawlist::Model top;
-            Drawlist::Model side;
-            struct point center = hex_to_pixel(coord);
+        Drawlist::Model top;
+        Drawlist::Model side;
+        struct point center = hex_to_pixel(coord);
 
-            float elevation = tile_value(&tile_gen, center.x, center.y);
-            mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
-            char top_tile = float_index(top_tileset, elevation);
-            char side_tile = float_index(side_tileset, elevation);
+        float elevation = tile_value(&tile_gen, center.x, center.y);
+        mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
+        char top_tile = float_index(top_tileset, elevation);
+        char side_tile = float_index(side_tileset, elevation);
 
-            top.model_matrix = mm;
-            side.model_matrix = mm;
-            top.material = &top_materials.at(top_tile);
-            side.material = &side_materials.at(side_tile);
+        top.model_matrix = mm;
+        side.model_matrix = mm;
+        top.material = &top_materials.at(top_tile);
+        side.material = &side_materials.at(side_tile);
 
-            drawlist.groups["hex_top"].push_back(top);
-            drawlist.groups["side"].push_back(side);
-            draw_tile_count++;
+        drawlist.groups["hex_top"].push_back(top);
+        drawlist.groups["side"].push_back(side);
+        draw_tile_count++;
     }
 
     glEnable(GL_DEPTH_TEST);
