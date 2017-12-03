@@ -20,7 +20,6 @@ extern "C" {
 #include <unistd.h>
 #include <sys/time.h>
 #include "osn.h"
-#include "hex.h"
 #include "tiles.h"
 #include "gl_aux.h"
 }
@@ -28,6 +27,7 @@ extern "C" {
 #include "wavefront.hpp"
 #include "gl3.hpp"
 #include "fir_filter.hpp"
+#include "hex.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -64,7 +64,7 @@ struct {
     int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
     filtered_value<float> pitch, distance;
     fir_filter<float> radius;
-    struct hex_coord center;
+    HexCoord<int> center;
 } view = {
     .yaw = 0,
     .pitch = filtered_value<float>(view_filter_coeffs,
@@ -187,7 +187,7 @@ glm::mat4 view_matrix()
     // yaw is negative because... fudge factor
     float target_angle = -view.yaw * (M_PI / 3.0) + (M_PI / 2.0);
     float angle = eye_angle_filter.next(target_angle);
-    struct point c = hex_to_pixel(view.center);
+    Point<double> c = hex_to_pixel(view.center);
     float distance = view.distance.get();
     float pitch = view.pitch.get();
     vec3 relative_eye(-distance * cos(angle) * cos(pitch),
@@ -204,8 +204,8 @@ glm::mat4 view_matrix()
 inline
 mat4 hex_model_matrix(int q, int r, float z)
 {
-    struct hex_coord coord = { .q = q, .r = r };
-    struct point center = hex_to_pixel(coord);
+    HexCoord<int> coord = { .q = q, .r = r };
+    Point<double> center = hex_to_pixel(coord);
     return glm::translate(mat4(1), vec3(center.x, center.y, z));
 }
 
@@ -216,7 +216,7 @@ char float_index(const string &coll, float x)
 }
 
 static inline
-struct hex_coord hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
+HexCoord<int> hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
 {
     // Define two points in screen space
     glm::vec4 screen_a(mouse.x, mouse.y, -1, 1);
@@ -233,39 +233,18 @@ struct hex_coord hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
     double x = a.x + t * (b.x - a.x);
     double y = a.y + t * (b.y - a.y);
 
-    struct hex_coord ret = pixel_to_hex(x, y);
+    HexCoord<int> ret = pixel_to_hex<int>(x, y);
     return ret;
 }
 
-vec2 to_vec2(struct point p)
+vec2 to_vec2(Point<double> p)
 {
     return vec2(p.x, p.y);
 }
 
-/*
-static inline
-int cube_distance(const ivec3 &a, const ivec3 &b)
+vector<HexCoord<int>> hex_range(int n, const HexCoord<int> &center)
 {
-    const ivec3 d = abs(a - b);
-    return (d.x + d.y + d.z) / 2;
-}
-
-static inline
-ivec3 hex_to_cube(const ivec2 &v)
-{
-    return ivec3(v.x, v.y, -v.x - v.y);
-}
-
-static inline
-int hex_distance(const ivec2 &a, const ivec2 &b)
-{
-    return cube_distance(hex_to_cube(a), hex_to_cube(b));
-}
-*/
-
-vector<hex_coord> hex_range(int n, const hex_coord &center)
-{
-    vector<hex_coord> ret;
+    vector<HexCoord<int>> ret;
     for (int q = -n; q <= n; q++) {
         int start = std::max(-n, -n-q);
         int stop = std::min(n, -q+n);
@@ -276,13 +255,10 @@ vector<hex_coord> hex_range(int n, const hex_coord &center)
     return ret;
 }
 
-vector<hex_coord> visible_hexes()
+vector<HexCoord<int>> visible_hexes()
 {
-    return hex_range(MAX_VIEW_DISTANCE, view.center);
-}
-
-bool operator==(const hex_coord &a, const hex_coord &b) {
-    return a.q == b.q && a.r == b.r;
+    // The +1 makes the vertically sliding tiles on the margin visible
+    return hex_range(MAX_VIEW_DISTANCE+1, view.center);
 }
 
 void draw_mouse_cursor(const tile_generator &tile_gen)
@@ -294,18 +270,13 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     SDL_GetWindowSize(window, &window_w, &window_h);
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
-    struct hex_coord mouse_hex = hex_under_mouse(view_proj, offset_mouse);
-    // Not a pretty solution at all, but whatever
-    vector<hex_coord> visible = visible_hexes();
-    if (std::find(visible.cbegin(), visible.cend(), mouse_hex) == visible.cend()) {
-        return;
-    }
+    struct HexCoord<int> mouse_hex = hex_under_mouse(view_proj, offset_mouse);
     int distance = hex_distance(mouse_hex, view.center);
-    if (distance >= MAX_VIEW_DISTANCE) {
+    if (distance > MAX_VIEW_DISTANCE) {
         return;
     }
 
-    struct point center = hex_to_pixel(mouse_hex);
+    Point<double> center = hex_to_pixel(mouse_hex);
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
     Drawlist drawlist;
@@ -348,15 +319,20 @@ void draw(const tile_generator &tile_gen)
     drawlist.projection = proj_matrix;
 
     drawlist.lights.put(astro_light(time_of_day, sun_color, 1));
-    drawlist.lights.put(astro_light(NOON + time_of_day * 0.93, moon_color, -1));
+    drawlist.lights.put(astro_light(NOON + time_of_day, moon_color, -1));
 
     // For benchmarking
     draw_tile_count = 0;
 
-    for (const hex_coord coord : visible_hexes()) {
+    for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Model top;
         Drawlist::Model side;
-        struct point center = hex_to_pixel(coord);
+        Point<double> center = hex_to_pixel(coord);
+        /*
+        double distance = hex_distance(
+            HexCoord<double>::from(coord),
+            HexCoord<double>::from(view.center));
+        */
 
         float elevation = tile_value(&tile_gen, center.x, center.y);
         mat4 mm = hex_model_matrix(coord.q, coord.r, elevation-0.5);
@@ -380,7 +356,7 @@ void draw(const tile_generator &tile_gen)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     check_gl_error();
 
-    //draw_mouse_cursor(tile_gen);
+    draw_mouse_cursor(tile_gen);
 
     gl3_draw(drawlist, program);
 }
