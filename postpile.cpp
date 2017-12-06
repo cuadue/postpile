@@ -98,6 +98,7 @@ int day_of_year = 0;
 
 fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
+fir_filter<float> filtered_elevation(view_filter_coeffs, 0);
 
 void libs_print_err() {
     fprintf(stderr, "SDL Error: %s\n", SDL_GetError());
@@ -349,6 +350,12 @@ void draw(const tile_generator &tile_gen)
     // For benchmarking
     draw_tile_count = 0;
 
+    Point<double> view_center = hex_to_pixel(view.center);
+    float center_elevation = 5*tile_value(&tile_gen,
+        view_center.x, view_center.y);
+
+    float elevation_offset = filtered_elevation.next(center_elevation);
+
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Model top;
         Drawlist::Model side;
@@ -360,7 +367,7 @@ void draw(const tile_generator &tile_gen)
         float elevation = tile_value(&tile_gen, center.x, center.y);
 
         mat4 mm = hex_model_matrix(coord.q, coord.r,
-            elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
+            elevation_offset + 5 * elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
 
         char top_tile = float_index(top_tileset, elevation);
         char side_tile = float_index(side_tileset, elevation);
