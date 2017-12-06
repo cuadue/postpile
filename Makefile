@@ -4,7 +4,7 @@ ifeq ($(shell uname), Darwin)
 LDFLAGS += -framework OpenGL
 PKGS = glew
 else
-PKGS = glew x11 xrandr xxf86vm gl
+PKGS = glfw3 glew x11 xrandr xxf86vm gl
 endif
 
 CFLAGS += -Werror -Wall -Wextra -std=c99 -O1

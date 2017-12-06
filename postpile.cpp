@@ -5,10 +5,10 @@
 
 #include <GL/glew.h>
 #include <SDL.h>
-#include <SDL_video.h>
-#include <SDL_opengl.h>
 #include <SDL_error.h>
 #include <SDL_image.h>
+
+#include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -68,8 +68,7 @@ const vector<float> view_filter_coeffs {
 #define MAX_VIEW_DISTANCE 8
 #define CLIFF_HEIGHT 2
 
-int bail = 0;
-SDL_Window *window;
+GLFWwindow *window;
 struct {
     int yaw; // clock: 0->noon, 1->2o'clock, 2->4o'clock...
     filtered_value<float> pitch, distance;
@@ -105,6 +104,11 @@ void libs_print_err() {
     fprintf(stderr, "IMG Error: %s\n", IMG_GetError());
 }
 
+void error_callback(int, const char* msg)
+{
+    fprintf(stderr, "GLFW Error: %s\n", msg);
+}
+
 #define libs_assert(x) if (!(x)) \
     {fprintf(stderr, "%s:%d Assert failed: %s\n", __FILE__, __LINE__, #x); \
         libs_print_err(); exit(1); }
@@ -117,11 +121,9 @@ static void set_msaa(int buf, int samp)
 }
 */
 
-static SDL_Window *make_window()
+static GLFWwindow *make_window()
 {
-    return SDL_CreateWindow("postpile",
-                SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    return glfwCreateWindow(800, 600, "postpile", NULL, NULL);
 }
 
 // low elevation -> high elevation
@@ -279,7 +281,7 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     mat4 vm = view_matrix();
     mat4 view_proj = proj_matrix * vm;
     int window_h = 0, window_w = 0;
-    SDL_GetWindowSize(window, &window_w, &window_h);
+    glfwGetWindowSize(window, &window_w, &window_h);
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
     struct HexCoord<int> mouse_hex = hex_under_mouse(view_proj, offset_mouse);
@@ -401,7 +403,7 @@ void draw(const tile_generator &tile_gen)
 void resize()
 {
     int w = 0, h = 0;
-    SDL_GetWindowSize(window, &w, &h);
+    glfwGetWindowSize(window, &w, &h);
     glViewport(0, 0, w, h);
     float fov = M_PI * 50.0 / 180.8;
     float aspect = w / (float)h;
@@ -424,60 +426,50 @@ void zoom_out() { zoom_in(-1); }
 void pitch_up(float dir=1) { view.pitch.add(0.02 * dir); }
 void pitch_down() { pitch_up(-1); }
 
-void events()
+void window_size_callback(GLFWwindow *, int, int)
 {
-    SDL_Event e;
-    while (SDL_PollEvent(&e)) {
-        switch (e.type) {
-        case SDL_QUIT:
-            exit(EXIT_SUCCESS);
-            break;
-
-        case SDL_WINDOWEVENT:
-            switch (e.window.event) {
-            case SDL_WINDOWEVENT_RESIZED:
-                resize();
-                break;
-            }
-            break;
-
-        case SDL_MOUSEMOTION:
-            mouse.x = e.motion.x;
-            mouse.y = e.motion.y;
-            break;
-
-        case SDL_KEYDOWN:
-            switch (e.key.keysym.scancode) {
-            case SDL_SCANCODE_W: move(0); break;
-            case SDL_SCANCODE_E: move(1); break;
-            case SDL_SCANCODE_D: move(2); break;
-            case SDL_SCANCODE_S: move(3); break;
-            case SDL_SCANCODE_A: move(4); break;
-            case SDL_SCANCODE_Q: move(5); break;
-
-            case SDL_SCANCODE_R: view.yaw++; break;
-            default: break;
-            }
-            break;
-        }
-    }
-
-    const uint8_t *keystate = SDL_GetKeyboardState(NULL);
-
-    if (keystate[SDL_SCANCODE_F]) zoom_in();
-    if (keystate[SDL_SCANCODE_V]) zoom_out();
-
-    if (keystate[SDL_SCANCODE_T]) pitch_up();
-    if (keystate[SDL_SCANCODE_G]) pitch_down();
+    resize();
 }
 
+void cursor_pos_callback(GLFWwindow *, double xpos, double ypos)
+{
+    mouse.x = xpos;
+    mouse.y = ypos;
+}
+
+void key_callback(GLFWwindow *, int key, int , int action, int )
+{
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        switch (key) {
+            case GLFW_KEY_W: move(0); break;
+            case GLFW_KEY_E: move(1); break;
+            case GLFW_KEY_D: move(2); break;
+            case GLFW_KEY_S: move(3); break;
+            case GLFW_KEY_A: move(4); break;
+            case GLFW_KEY_Q: move(5); break;
+
+            case GLFW_KEY_R: view.yaw++; break;
+        }
+    }
+}
+
+int key_is_pressed(int key)
+{
+    return glfwGetKey(window, key) == GLFW_PRESS;
+}
+
+void handle_static_keys()
+{
+    if (key_is_pressed(GLFW_KEY_F)) zoom_in();
+    if (key_is_pressed(GLFW_KEY_V)) zoom_out();
+
+    if (key_is_pressed(GLFW_KEY_T)) pitch_up();
+    if (key_is_pressed(GLFW_KEY_G)) pitch_down();
+}
 
 int main()
 {
-    libs_assert(!SDL_Init(SDL_INIT_VIDEO));
-
-    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3));
-    libs_assert(!SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3));
+    libs_assert(glfwInit());
 
     //set_msaa(1, 4);
     if (!(window = make_window())) {
@@ -485,17 +477,13 @@ int main()
         libs_assert((window = make_window()));
     }
 
-    libs_assert(SDL_GL_CreateContext(window));
+    glfwMakeContextCurrent(window);
+    glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, cursor_pos_callback);
+    glfwSetWindowSizeCallback(window, window_size_callback);
+    glfwSetErrorCallback(error_callback);
+
     check_gl_error();
-    bool swap_interval = true;
-    if (SDL_GL_SetSwapInterval(-1) < 0) {
-        check_gl_error();
-        if (SDL_GL_SetSwapInterval(1) < 0) {
-            check_gl_error();
-            fprintf(stderr, "Using sleep, expect poor performance\n");
-            swap_interval = false;
-        }
-    }
 
     libs_assert(IMG_Init(IMG_INIT_PNG) == IMG_INIT_PNG);
     fprintf(stderr, "GL Vendor: %s\n", glGetString(GL_VENDOR));
@@ -532,17 +520,16 @@ int main()
     float avg_tiles_count = 500;
     int i=0;
 
-    while (!bail) {
+    while (!glfwWindowShouldClose(window)) {
         if (gettimeofday(&starttime, NULL) < 0) {
             perror("gettimeofday");
         }
-        events();
+        glfwPollEvents();
+        handle_static_keys();
         draw(tile_gen);
 
-        SDL_GL_SwapWindow(window);
-        if (!swap_interval) {
-            SDL_Delay(15);
-        }
+        glfwPollEvents();
+        glfwSwapBuffers(window);
 
         if (gettimeofday(&frametime, NULL) < 0) {
             perror("gettimeofday");
