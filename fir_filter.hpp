@@ -61,7 +61,9 @@ public:
             final_value = std::min(big, final_value);
         if (std::isfinite(lil))
             final_value = std::max(lil, final_value);
+    }
 
+    void step() {
         filter.next(final_value);
     }
 

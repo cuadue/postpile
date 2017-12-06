@@ -37,7 +37,7 @@ extern "C" {
 #define VIEW_MAX_PITCH (M_PI/2.01)
 #define VIEW_MIN_PITCH (M_PI/5.0)
 #define VIEW_MAX_DISTANCE 50
-#define VIEW_MIN_DISTANCE 10
+#define VIEW_MIN_DISTANCE 20
 
 using namespace std;
 using namespace glm;
@@ -65,6 +65,12 @@ const vector<float> view_filter_coeffs {
     0.00791063,  0.00606107,  0.00470869,  0.00388049,  0.00358851
 };
 
+// scipy.signal.firwin(10, 0.01)
+const vector<float> fast_filter_coeffs {
+    0.01614987,  0.03792532,  0.09310069,  0.15590377,  0.19692034,
+    0.19692034,  0.15590377,  0.09310069,  0.03792532,  0.01614987
+};
+
 #define MAX_VIEW_DISTANCE 8
 #define CLIFF_HEIGHT 2
 
@@ -76,9 +82,9 @@ struct {
     HexCoord<double> filtered_center;
 } view = {
     .yaw = 0,
-    .pitch = filtered_value<float>(view_filter_coeffs,
+    .pitch = filtered_value<float>(fast_filter_coeffs,
         VIEW_MAX_PITCH, VIEW_MIN_PITCH),
-    .distance = filtered_value<float>(view_filter_coeffs,
+    .distance = filtered_value<float>(fast_filter_coeffs,
         VIEW_MAX_DISTANCE, VIEW_MIN_DISTANCE),
     .center = {0, 0},
     .filtered_center = {0, 0},
@@ -194,6 +200,8 @@ map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
     return ret;
 }
 
+// TODO This function is not idempotent, in particular it advances several
+// filters each time it's called. Yikes.
 glm::mat4 view_matrix()
 {
     // yaw = 0 -> looking up the positive Y-axis
@@ -467,9 +475,18 @@ void handle_static_keys()
     if (key_is_pressed(GLFW_KEY_G)) pitch_down();
 }
 
+void tick()
+{
+    view.pitch.step();
+    view.distance.step();
+}
+
 int main()
 {
     libs_assert(glfwInit());
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
     //set_msaa(1, 4);
     if (!(window = make_window())) {
@@ -526,6 +543,7 @@ int main()
         }
         glfwPollEvents();
         handle_static_keys();
+        tick();
         draw(tile_gen);
 
         glfwPollEvents();
