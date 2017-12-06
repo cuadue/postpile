@@ -2,7 +2,7 @@ all: postpile
 
 ifeq ($(shell uname), Darwin)
 LDFLAGS += -framework OpenGL
-PKGS = glew
+PKGS = glew glfw3
 else
 PKGS = glfw3 glew x11 xrandr xxf86vm gl
 endif

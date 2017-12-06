@@ -411,7 +411,7 @@ void draw(const tile_generator &tile_gen)
 void resize()
 {
     int w = 0, h = 0;
-    glfwGetWindowSize(window, &w, &h);
+    glfwGetFramebufferSize(window, &w, &h);
     glViewport(0, 0, w, h);
     float fov = M_PI * 50.0 / 180.8;
     float aspect = w / (float)h;
@@ -484,9 +484,12 @@ void tick()
 int main()
 {
     libs_assert(glfwInit());
+    glfwSetErrorCallback(error_callback);
 
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GL_TRUE);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
     //set_msaa(1, 4);
     if (!(window = make_window())) {
@@ -497,8 +500,7 @@ int main()
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
-    glfwSetWindowSizeCallback(window, window_size_callback);
-    glfwSetErrorCallback(error_callback);
+    glfwSetFramebufferSizeCallback(window, window_size_callback);
 
     check_gl_error();
 

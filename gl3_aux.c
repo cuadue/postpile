@@ -79,11 +79,12 @@ GLuint load_program(const char *vert_file, const char *frag_file)
 {
     GLuint ret = 0;
     GLuint vert = compile_shader(GL_VERTEX_SHADER, vert_file);
+    GLuint frag = 0;
     if (!vert) {
         goto quit;
     }
 
-    GLuint frag = compile_shader(GL_FRAGMENT_SHADER, frag_file);
+    frag = compile_shader(GL_FRAGMENT_SHADER, frag_file);
     if (!frag) {
         goto quit;
     }
