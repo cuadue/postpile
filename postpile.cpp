@@ -37,7 +37,7 @@ extern "C" {
 #define VIEW_MAX_PITCH (M_PI/2.01)
 #define VIEW_MIN_PITCH (M_PI/5.0)
 #define VIEW_MAX_DISTANCE 50
-#define VIEW_MIN_DISTANCE 20
+#define VIEW_MIN_DISTANCE 5
 
 using namespace std;
 using namespace glm;
@@ -361,7 +361,7 @@ void draw(const tile_generator &tile_gen)
     draw_tile_count = 0;
 
     Point<double> view_center = hex_to_pixel(view.center);
-    float center_elevation = 5*tile_value(&tile_gen,
+    float center_elevation = -5 * tile_value(&tile_gen,
         view_center.x, view_center.y);
 
     float elevation_offset = filtered_elevation.next(center_elevation);
@@ -377,7 +377,8 @@ void draw(const tile_generator &tile_gen)
         float elevation = tile_value(&tile_gen, center.x, center.y);
 
         mat4 mm = hex_model_matrix(coord.q, coord.r,
-            elevation_offset + 5 * elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
+            5 * elevation - 0.5 - CLIFF_HEIGHT * cliff(distance) +
+            elevation_offset);
 
         char top_tile = float_index(top_tileset, elevation);
         char side_tile = float_index(side_tileset, elevation);
