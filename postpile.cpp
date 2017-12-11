@@ -28,6 +28,7 @@ extern "C" {
 #include "gl3.hpp"
 #include "fir_filter.hpp"
 #include "hex.hpp"
+#include "time.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -90,20 +91,17 @@ struct {
     .filtered_center = {0, 0},
 };
 
-#define NOON 48
-#define MIDNIGHT (2*NOON)
 #define HORIZON 0.2
-int time_of_day = 0;
 const glm::vec3 sun_color(1, 0.9, 0.9);
 const glm::vec3 moon_color(0.3, 0.4, 0.5);
 
-#define YEAR_LENGTH 73
 #define LATITUDE 0.4
-int day_of_year = 0;
 
 fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
 fir_filter<float> filtered_elevation(view_filter_coeffs, 0);
+
+Time game_time(view_filter_coeffs);
 
 void libs_print_err() {
     fprintf(stderr, "SDL Error: %s\n", SDL_GetError());
@@ -315,13 +313,12 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
 
 float astro_bias()
 {
-    float t = (float)day_of_year + (float)time_of_day / MIDNIGHT;
-    return LATITUDE * sin(t / YEAR_LENGTH);
+    return LATITUDE * sin(game_time.fractional_year());
 }
 
-Light astro_light(float time, glm::vec3 base_color, int bias_sign)
+Light astro_light(float t, glm::vec3 base_color, int bias_sign)
 {
-    float angle = 2.0 * M_PI * time / (float)MIDNIGHT;
+    float angle = 2.0 * M_PI * t;
     float x = sin(angle);
     float y = cos(angle) + bias_sign * astro_bias();
     glm::vec3 direction(x, 0, y);
@@ -354,8 +351,8 @@ void draw(const tile_generator &tile_gen)
     drawlist.view = view_matrix();
     drawlist.projection = proj_matrix;
 
-    drawlist.lights.put(astro_light(time_of_day, sun_color, 1));
-    drawlist.lights.put(astro_light(NOON + time_of_day, moon_color, -1));
+    drawlist.lights.put(astro_light(game_time.fractional_day(), sun_color, 1));
+    drawlist.lights.put(astro_light(game_time.fractional_night(), moon_color, -1));
 
     // For benchmarking
     draw_tile_count = 0;
@@ -422,12 +419,7 @@ void resize()
 void move(int n)
 {
     view.center = hex_add(view.center, adjacent_hex(view.yaw + n));
-    time_of_day++;
-    if (time_of_day > MIDNIGHT) {
-        day_of_year++;
-        day_of_year %= YEAR_LENGTH;
-    }
-    time_of_day %= MIDNIGHT;
+    game_time.advance_hour();
 }
 
 void zoom_in(float dir=1) { view.distance.add(0.5 * dir); }
@@ -480,6 +472,7 @@ void tick()
 {
     view.pitch.step();
     view.distance.step();
+    game_time.step();
 }
 
 int main()

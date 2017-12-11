@@ -21,7 +21,7 @@ LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
 
 
 OBJS = postpile.o wavefront.o wavefront_mtl.o hex.o
-OBJS += tiles.o osn.o
+OBJS += tiles.o osn.o time.o
 OBJS += gl3.o gl3_aux.o gl_aux.o
 
 tex:
