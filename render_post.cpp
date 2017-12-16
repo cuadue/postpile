@@ -11,10 +11,6 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
     normal.init(program, "normal", 3);
     uv.init(program, "vertex_uv", 2);
 
-    mesh_attributes.vertex = &vertex;
-    mesh_attributes.normal = &normal;
-    mesh_attributes.uv = &uv;
-
     MVP.init(program, "MVP");
     N.init(program, "N");
 
@@ -30,7 +26,11 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
 void RenderPost::draw(const Drawlist &drawlist)
 {
     glUseProgram(program);
-    drawlist.mesh->setup_mesh_data(mesh_attributes);
+    drawlist.mesh->activate();
+    vertex.activate(drawlist.mesh->vertex_buffer);
+    normal.activate(drawlist.mesh->normal_buffer);
+    uv.activate(drawlist.mesh->uv_buffer);
+
     glm::mat4 view_projection = drawlist.projection * drawlist.view;
 
     num_lights.set(drawlist.lights.direction.size());
@@ -62,6 +62,8 @@ void RenderPost::draw(const Drawlist &drawlist)
         }
     }
 
-    drawlist.mesh->teardown_mesh_data(mesh_attributes);
+    vertex.disable(drawlist.mesh->vertex_buffer);
+    normal.disable(drawlist.mesh->normal_buffer);
+    uv.disable(drawlist.mesh->uv_buffer);
     check_gl_error();
 }

@@ -17,8 +17,6 @@ struct RenderPost {
     VertexAttribArray normal;
     VertexAttribArray uv;
 
-    gl3_mesh::attributes mesh_attributes;
-
     UniformMat4 MVP;  // model view projection matrix
     UniformMat3 N;    // normal matrix
 

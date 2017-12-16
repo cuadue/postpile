@@ -43,20 +43,9 @@ struct ArrayBuffer {
 struct VertexAttribArray {
     void init(GLuint program, const char *name, int size);
     void activate(const ArrayBuffer& ab) const;
-    void disable() const;
+    void disable(const ArrayBuffer& ab) const;
     GLuint location;
     int size;
-};
-
-// The arguments to glEnableVertexAttribArray and glVertexAttribPointer
-struct gl3_attributes {
-    // Inputs
-    GLint vertex;
-    bool has_normals;
-    GLint normals;
-    bool has_uv;
-    GLint uv;
-
 };
 
 struct gl3_group {
@@ -86,11 +75,6 @@ struct VertexArrayObject {
 };
 
 struct gl3_mesh {
-    struct attributes {
-        const VertexAttribArray *vertex;
-        const VertexAttribArray *normal;
-        const VertexAttribArray *uv;
-    };
     VertexArrayObject vao;
     ArrayBuffer vertex_buffer;
     ArrayBuffer normal_buffer;
@@ -101,8 +85,7 @@ struct gl3_mesh {
     gl3_mesh() {}
     explicit gl3_mesh(const wf_mesh &wf);
     void draw_group(const std::string &name) const;
-    void setup_mesh_data(attributes attribs) const;
-    void teardown_mesh_data(attributes attribs) const;
+    void activate() const;
 };
 
 struct Light {

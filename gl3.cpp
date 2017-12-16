@@ -132,43 +132,26 @@ void VertexAttribArray::init(GLuint program, const char *name, int _size)
     size = _size;
 }
 
-void VertexAttribArray::disable() const
+void VertexAttribArray::disable(const ArrayBuffer &ab) const
 {
+    if (!ab.present) return;
+    check_gl_error();
     glDisableVertexAttribArray(location);
     check_gl_error();
 }
 
 void VertexAttribArray::activate(const ArrayBuffer &ab) const
 {
+    if (!ab.present) return;
     glEnableVertexAttribArray(location);
     glBindBuffer(GL_ARRAY_BUFFER, ab.buffer);
     glVertexAttribPointer(location, size, GL_FLOAT, GL_FALSE, 0, NULL);
     check_gl_error();
 }
 
-void gl3_mesh::setup_mesh_data(gl3_mesh::attributes attribs) const
+void gl3_mesh::activate() const
 {
     glBindVertexArray(vao.location);
-
-    if (attribs.vertex) {
-        assert(vertex_buffer.present);
-        attribs.vertex->activate(vertex_buffer);
-    }
-
-    if (attribs.normal && normal_buffer.present) {
-        attribs.normal->activate(normal_buffer);
-    }
-
-    if (attribs.uv && uv_buffer.present) {
-        attribs.uv->activate(uv_buffer);
-    }
-}
-
-void gl3_mesh::teardown_mesh_data(gl3_mesh::attributes attribs) const
-{
-    if (attribs.vertex) attribs.vertex->disable();
-    if (attribs.normal) attribs.normal->disable();
-    if (attribs.uv)     attribs.uv->disable();
 }
 
 void gl3_mesh::draw_group(const string &name) const
