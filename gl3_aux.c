@@ -11,6 +11,11 @@
 static int slurp_file(const char *path, char *buf, size_t size)
 {
     int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        fprintf(stderr, "%s: ", path);
+        perror("open");
+        return -1;
+    }
     int ret = 0;
     while (size > 0) {
         int n = read(fd, buf, size);

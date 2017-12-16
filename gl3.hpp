@@ -1,3 +1,5 @@
+#pragma once
+
 #include <string>
 #include <map>
 #include <vector>
@@ -31,6 +33,21 @@ typedef Uniform<std::vector<glm::vec3>> UniformVec3Vec;
 typedef Uniform<int> UniformInt;
 typedef Uniform<float> UniformFloat;
 
+struct ArrayBuffer {
+    ArrayBuffer() : present(false) {}
+    ArrayBuffer(int size, const std::vector<float> &data, bool _present);
+    bool present;
+    GLuint buffer;
+};
+
+struct VertexAttribArray {
+    void init(GLuint program, const char *name, int size);
+    void activate(const ArrayBuffer& ab) const;
+    void disable() const;
+    GLuint location;
+    int size;
+};
+
 // The arguments to glEnableVertexAttribArray and glVertexAttribPointer
 struct gl3_attributes {
     // Inputs
@@ -40,21 +57,6 @@ struct gl3_attributes {
     bool has_uv;
     GLint uv;
 
-    // Uniforms
-    UniformMat4 MVP;  // model view projection matrix
-    UniformMat3 N;    // normal matrix
-
-    UniformInt diffuse_map;
-    UniformFloat visibility;
-
-    UniformInt num_lights;
-    UniformVec3Vec light_vec;
-    UniformVec3Vec light_color;
-};
-
-struct gl3_program {
-    GLuint program;
-    gl3_attributes attribs;
 };
 
 struct gl3_group {
@@ -73,27 +75,35 @@ struct gl3_material {
     GLfloat shininess;
     GLfloat specular[4], diffuse[4];
     GLuint texture;
+    int index;
+    void setup(const UniformInt& diffuse_map) const;
     void set_diffuse(const std::vector<GLfloat> &);
 };
 
+struct VertexArrayObject {
+    VertexArrayObject();
+    GLuint location;
+};
+
 struct gl3_mesh {
-    GLuint vertex_buffer;
-    bool has_normals;
-    GLuint normal_buffer;
-    bool has_uv;
-    GLuint uv_buffer;
-    GLuint vao;
+    struct attributes {
+        const VertexAttribArray *vertex;
+        const VertexAttribArray *normal;
+        const VertexAttribArray *uv;
+    };
+    VertexArrayObject vao;
+    ArrayBuffer vertex_buffer;
+    ArrayBuffer normal_buffer;
+    ArrayBuffer uv_buffer;
 
     std::map<std::string, std::vector<gl3_group>> groups;
 
     gl3_mesh() {}
     explicit gl3_mesh(const wf_mesh &wf);
     void draw_group(const std::string &name) const;
-    void setup_mesh_data(const gl3_attributes &attribs) const;
-    void teardown_mesh_data(const gl3_attributes &attribs) const;
+    void setup_mesh_data(attributes attribs) const;
+    void teardown_mesh_data(attributes attribs) const;
 };
-
-gl3_program gl3_load_program(const char *vert_file, const char *frag_file);
 
 struct Light {
     glm::vec3 direction, color;
@@ -106,6 +116,11 @@ struct Lights {
         direction.push_back(glm::normalize(l.direction));
         color.push_back(l.color);
     }
+};
+
+struct Lightmap {
+    GLuint framebuffer;
+    GLuint texture;
 };
 
 struct Drawlist {
@@ -126,5 +141,3 @@ struct Drawlist {
     std::map<std::string, std::vector<Model>> groups;
     Lights lights;
 };
-
-void gl3_draw(const Drawlist &drawlist, const gl3_program &program);

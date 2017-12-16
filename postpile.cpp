@@ -29,6 +29,7 @@ extern "C" {
 #include "fir_filter.hpp"
 #include "hex.hpp"
 #include "time.hpp"
+#include "render_post.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -47,12 +48,15 @@ int draw_tile_count = 0;
 
 mat4 proj_matrix;
 vec2 mouse;
-gl3_mesh post_mesh;
 map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
 gl3_material cursor_mtl;
-gl3_mesh cursor_mesh;
-gl3_program program;
+
+struct Meshes {
+    gl3_mesh post_mesh;
+    gl3_mesh cursor_mesh;
+};
+RenderPost render_post;
 
 // scipy.signal.firwin(40, 0.01)
 const vector<float> view_filter_coeffs {
@@ -281,7 +285,7 @@ vector<HexCoord<int>> visible_hexes()
     return hex_range(MAX_VIEW_DISTANCE+1, view.center);
 }
 
-void draw_mouse_cursor(const tile_generator &tile_gen)
+void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
 {
     check_gl_error();
     mat4 vm = view_matrix();
@@ -300,7 +304,7 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     float elevation = tile_value(&tile_gen, center.x, center.y);
 
     Drawlist drawlist;
-    drawlist.mesh = &cursor_mesh;
+    drawlist.mesh = &meshes.cursor_mesh;
     drawlist.view = view_matrix();
     drawlist.projection = proj_matrix;
     Drawlist::Model dlm;
@@ -308,7 +312,7 @@ void draw_mouse_cursor(const tile_generator &tile_gen)
     dlm.material = &cursor_mtl;
 
     drawlist.groups["cursor"].push_back(dlm);
-    gl3_draw(drawlist, program);
+    // TODO draw cursor
 }
 
 float astro_bias()
@@ -342,12 +346,12 @@ double cliff(double distance)
     return ret;
 }
 
-void draw(const tile_generator &tile_gen)
+void draw(const tile_generator &tile_gen, const Meshes &meshes)
 {
     // TODO gl3_light();
 
     Drawlist drawlist;
-    drawlist.mesh = &post_mesh;
+    drawlist.mesh = &meshes.post_mesh;
     drawlist.view = view_matrix();
     drawlist.projection = proj_matrix;
 
@@ -400,9 +404,9 @@ void draw(const tile_generator &tile_gen)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     check_gl_error();
 
-    draw_mouse_cursor(tile_gen);
+    draw_mouse_cursor(tile_gen, meshes);
 
-    gl3_draw(drawlist, program);
+    render_post.draw(drawlist);
 }
 
 
@@ -475,6 +479,10 @@ void tick()
     game_time.step();
 }
 
+void lmdebug()
+{
+}
+
 int main()
 {
     libs_assert(glfwInit());
@@ -512,14 +520,15 @@ int main()
     glewInit();
     check_gl_error();
     resize();
-    program = gl3_load_program("program.vert", "program.frag");
+    render_post.init("render_post.vert", "render_post.frag");
 
-    post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
-    assert(post_mesh.vao);
+    Meshes meshes;
+    meshes.post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
+    assert(meshes.post_mesh.vao.location);
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
 
-    cursor_mesh = gl3_mesh(wf_mesh_from_file("cursor.obj"));
+    meshes.cursor_mesh = gl3_mesh(wf_mesh_from_file("cursor.obj"));
 
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };
@@ -540,7 +549,7 @@ int main()
         glfwPollEvents();
         handle_static_keys();
         tick();
-        draw(tile_gen);
+        draw(tile_gen, meshes);
 
         glfwPollEvents();
         glfwSwapBuffers(window);
