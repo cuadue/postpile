@@ -45,7 +45,8 @@ void RenderPost::draw(const Drawlist &drawlist)
 
     for (const auto &pair : drawlist.groups) {
         const std::string &group_name = pair.first;
-        std::map<const gl3_material*, std::vector<const Drawlist::Model*>> grouped;
+        std::map<const gl3_material*, std::vector<const Drawlist::Model*>>
+            grouped;
 
         for (const Drawlist::Model &model : pair.second) {
             grouped[model.material].push_back(&model);

@@ -32,6 +32,7 @@ void LmDebug::init(const char *vert_file, const char *frag_file)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     check_gl_error();
+    check_gl_framebuffer(framebuffer);
 }
 
 void LmDebug::draw(const Drawlist &drawlist)
@@ -47,6 +48,7 @@ void LmDebug::draw(const Drawlist &drawlist)
                                  glm::vec3(0, 1, 0));
     glm::mat4 view_projection = projection * view;
 
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                          texture_target, 0);
     check_gl_error();
