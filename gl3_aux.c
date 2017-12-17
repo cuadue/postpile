@@ -155,4 +155,3 @@ GLint get_attrib_location(GLuint program, const char *name)
     }
     return ret;
 }
-

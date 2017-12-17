@@ -1,7 +1,6 @@
 #include "gl_aux.h"
 
 #include <stdio.h>
-#include <GL/glew.h>
 
 void __check_gl_error(const char *file, int line)
 {
@@ -21,3 +20,22 @@ void __check_gl_error(const char *file, int line)
     fprintf(stderr, "%s:%d: %s\n", file, line, err);
 }
 
+void __check_gl_framebuffer(GLint framebuffer, const char *file, int line)
+{
+    const char *err = "Unknown";
+    switch (glCheckFramebufferStatus(framebuffer)) {
+    case GL_FRAMEBUFFER_COMPLETE: return;
+    #define c(e) case e: err = #e;
+    c(GL_FRAMEBUFFER_UNDEFINED);
+    c(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
+    c(GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT);
+    c(GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER);
+    c(GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER);
+    c(GL_FRAMEBUFFER_UNSUPPORTED);
+    c(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
+    c(GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS);
+    #undef c
+    }
+
+        fprintf(stderr, "%s:%d: Framebuffer: %s\n", file, line, err);
+}

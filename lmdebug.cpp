@@ -1,29 +1,29 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+extern "C" {
+#include "gl_aux.h"
+}
 #include "gl3.hpp"
-
-class LmDebug {
-    GLuint program;
-
-    UniformMat4 MVP;
-    VertexAttribArray vertex;
-
-    GLuint framebuffer;
-    GLuint texture_target;
-};
+#include "lmdebug.hpp"
 
 void LmDebug::init(const char *vert_file, const char *frag_file)
 {
+    check_gl_error();
     program = load_program(vert_file, frag_file);
+    check_gl_error();
 
     vertex.init(program, "vertex", 4);
     MVP.init(program, "MVP");
 
     glGenFramebuffers(1, &framebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    check_gl_error();
 
     glGenTextures(1, &texture_target);
     glBindTexture(GL_TEXTURE_2D, texture_target);
+    check_gl_error();
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 2048, 2048, 0,
                  GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
@@ -31,36 +31,25 @@ void LmDebug::init(const char *vert_file, const char *frag_file)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    const char *err = "Unknown framebuffer error";
-    switch (glCheckFramebufferStatus(framebuffer)) {
-    #define c(e) case e: err = #e;
-    c(GL_FRAMEBUFFER_UNDEFINED);
-    c(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
-    c(GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT);
-    c(GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER);
-    c(GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER);
-    c(GL_FRAMEBUFFER_UNSUPPORTED);
-    c(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
-    c(GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS);
-    #undef c
-        fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, #e);\
-    }
+    check_gl_error();
 }
 
 void LmDebug::draw(const Drawlist &drawlist)
 {
     glUseProgram(program);
+    check_gl_error();
+
+    glm::vec3 light_direction = drawlist.lights.direction[0];
+    check_gl_error();
 
     glm::mat4 projection = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
     glm::mat4 view = glm::lookAt(-light_direction, glm::vec3(0, 0, 0),
                                  glm::vec3(0, 1, 0));
-    glm::mat4 mvp = projection * view;
-
-    MVP.set(mvp);
+    glm::mat4 view_projection = projection * view;
 
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                          texture_target, 0);
+    check_gl_error();
     glDrawBuffer(GL_NONE);
 
     drawlist.mesh->activate();
@@ -68,10 +57,8 @@ void LmDebug::draw(const Drawlist &drawlist)
 
     for (const auto &pair : drawlist.groups) {
         for (const Drawlist::Model &model : pair.second) {
-            MVP.set(view_projection * model->model_matrix);
-            visibility.set(model->visibility);
-            N.set(glm::mat3(1));
-            drawlist.mesh->draw_group(group_name);
+            MVP.set(view_projection * model.model_matrix);
+            drawlist.mesh->draw_group(pair.first);
         }
     }
 

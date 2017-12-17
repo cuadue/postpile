@@ -30,6 +30,7 @@ extern "C" {
 #include "hex.hpp"
 #include "time.hpp"
 #include "render_post.hpp"
+#include "lmdebug.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -51,6 +52,7 @@ vec2 mouse;
 map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
 gl3_material cursor_mtl;
+LmDebug lmdebug;
 
 struct Meshes {
     gl3_mesh post_mesh;
@@ -397,16 +399,13 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         draw_tile_count++;
     }
 
-    glEnable(GL_DEPTH_TEST);
-    check_gl_error();
-    glDepthFunc(GL_LESS);
-    check_gl_error();
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    check_gl_error();
 
     draw_mouse_cursor(tile_gen, meshes);
-
     render_post.draw(drawlist);
+    lmdebug.draw(drawlist);
 }
 
 
@@ -479,10 +478,6 @@ void tick()
     game_time.step();
 }
 
-void lmdebug()
-{
-}
-
 int main()
 {
     libs_assert(glfwInit());
@@ -521,6 +516,9 @@ int main()
     check_gl_error();
     resize();
     render_post.init("render_post.vert", "render_post.frag");
+    check_gl_error();
+    lmdebug.init("lmdebug.vert", "lmdebug.frag");
+    check_gl_error();
 
     Meshes meshes;
     meshes.post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));

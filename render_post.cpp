@@ -25,9 +25,12 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
 
 void RenderPost::draw(const Drawlist &drawlist)
 {
+    check_gl_error();
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     glUseProgram(program);
-    // Send this into the backbuffer
-    glDrawBuffer(GL_BACK);
+    check_gl_error();
 
     drawlist.mesh->activate();
     vertex.activate(drawlist.mesh->vertex_buffer);
