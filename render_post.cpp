@@ -26,6 +26,9 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
 void RenderPost::draw(const Drawlist &drawlist)
 {
     glUseProgram(program);
+    // Send this into the backbuffer
+    glDrawBuffer(GL_BACK);
+
     drawlist.mesh->activate();
     vertex.activate(drawlist.mesh->vertex_buffer);
     normal.activate(drawlist.mesh->normal_buffer);
