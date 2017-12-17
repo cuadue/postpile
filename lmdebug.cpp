@@ -32,12 +32,19 @@ void LmDebug::init(const char *vert_file, const char *frag_file)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
+    const char *err = "Unknown framebuffer error";
     switch (glCheckFramebufferStatus(framebuffer)) {
-    #define c(e) case e:\
-        fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, #e);\
-        break;
-    c(
+    #define c(e) case e: err = #e;
+    c(GL_FRAMEBUFFER_UNDEFINED);
+    c(GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
+    c(GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT);
+    c(GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER);
+    c(GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER);
+    c(GL_FRAMEBUFFER_UNSUPPORTED);
+    c(GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE);
+    c(GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS);
     #undef c
+        fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, #e);\
     }
 }
 
