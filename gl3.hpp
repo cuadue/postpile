@@ -35,7 +35,7 @@ typedef Uniform<float> UniformFloat;
 
 struct ArrayBuffer {
     ArrayBuffer() : present(false) {}
-    ArrayBuffer(int size, const std::vector<float> &data, bool _present);
+    ArrayBuffer(const std::vector<float> &data, bool _present);
     bool present;
     GLuint buffer;
 };

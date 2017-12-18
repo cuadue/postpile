@@ -69,6 +69,7 @@ gl3_group::gl3_group(const wf_group& wf)
     assert(sizeof wf.triangle_indices[0] == 4);
     glGenBuffers(1, &index_buffer);
     count = wf.triangle_indices.size();
+
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  count * 4,
@@ -94,23 +95,23 @@ VertexArrayObject::VertexArrayObject()
     check_gl_error();
 }
 
-ArrayBuffer::ArrayBuffer(int size, const std::vector<float> &data, bool _present)
+ArrayBuffer::ArrayBuffer(const std::vector<float> &data, bool _present)
 : present(_present)
 {
     if (present) {
         glGenBuffers(1, &buffer);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
         glBufferData(GL_ARRAY_BUFFER,
-                     size * data.size(),
+                     sizeof(data[0]) * data.size(),
                      &data[0], GL_STATIC_DRAW);
     }
 }
 
 gl3_mesh::gl3_mesh(const wf_mesh& wf)
 : vao()
-, vertex_buffer(4, wf.vertex4, true)
-, normal_buffer(3, wf.normal3, wf.has_normals())
-, uv_buffer(2, wf.texture2, wf.has_texture_coords())
+, vertex_buffer(wf.vertex4, true)
+, normal_buffer(wf.normal3, wf.has_normals())
+, uv_buffer(wf.texture2, wf.has_texture_coords())
 {
     assert(sizeof wf.vertex4[0] == 4);
     assert(sizeof wf.normal3[0] == 4);
