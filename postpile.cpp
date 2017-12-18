@@ -31,6 +31,7 @@ extern "C" {
 #include "time.hpp"
 #include "render_post.hpp"
 #include "lmdebug.hpp"
+#include "depthmap.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -53,10 +54,12 @@ map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
 gl3_material cursor_mtl;
 LmDebug lmdebug;
+Depthmap depthmap;
 
 struct Meshes {
     gl3_mesh post_mesh;
     gl3_mesh cursor_mesh;
+    gl3_mesh lmdebug_mesh;
 };
 RenderPost render_post;
 
@@ -399,15 +402,27 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         draw_tile_count++;
     }
 
+    // TODO get rid of this offset
+    depthmap.render(drawlist, hex_model_matrix(-view.center.q, -view.center.r, 0));
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    int w = 0, h = 0;
+    glfwGetFramebufferSize(window, &w, &h);
+    glViewport(0, 0, w, h);
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     draw_mouse_cursor(tile_gen, meshes);
     render_post.draw(drawlist);
-    lmdebug.draw(drawlist);
 }
 
+void lmdebug_draw(const gl3_mesh &mesh)
+{
+    Drawlist drawlist;
+    drawlist.mesh = &mesh;
+    drawlist.groups["plane"].push_back(Drawlist::Model());
+    lmdebug.draw(drawlist, depthmap.texture_target);
+}
 
 void resize()
 {
@@ -515,9 +530,14 @@ int main()
     glewInit();
     check_gl_error();
     resize();
+
     render_post.init("render_post.vert", "render_post.frag");
     check_gl_error();
+
     lmdebug.init("lmdebug.vert", "lmdebug.frag");
+    check_gl_error();
+
+    depthmap.init("depthmap.vert", "depthmap.frag");
     check_gl_error();
 
     Meshes meshes;
@@ -527,7 +547,7 @@ int main()
     side_materials = load_tex_mtls(side_texfiles);
 
     meshes.cursor_mesh = gl3_mesh(wf_mesh_from_file("cursor.obj"));
-
+    meshes.lmdebug_mesh = gl3_mesh(wf_mesh_from_file("lmdebug.obj"));
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };
     tile_gen.harmonics = harmonics;
@@ -548,6 +568,7 @@ int main()
         handle_static_keys();
         tick();
         draw(tile_gen, meshes);
+        lmdebug_draw(meshes.lmdebug_mesh);
 
         glfwPollEvents();
         glfwSwapBuffers(window);

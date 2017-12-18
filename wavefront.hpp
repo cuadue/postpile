@@ -25,3 +25,4 @@ struct wf_mesh {
 };
 
 struct wf_mesh wf_mesh_from_file(const char *path);
+void dump_mesh(const wf_mesh &);

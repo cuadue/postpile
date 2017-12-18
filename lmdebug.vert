@@ -1,9 +1,12 @@
 #version 330 core
 
-uniform mat4 MVP;
-in vec3 vertex;
+in vec4 vertex;
+in vec2 vertex_uv;
+
+out vec2 uv;
 
 void main()
 {
-    gl_Position = MVP * vec4(vertex, 1);
+    uv = vertex_uv;
+    gl_Position = vertex;
 }

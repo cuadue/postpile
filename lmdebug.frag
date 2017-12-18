@@ -1,8 +1,13 @@
 #version 330 core
 
-out float depth;
+uniform sampler2D samp;
+
+in vec2 uv;
+
+out vec3 color;
 
 void main()
 {
-    depth = gl_FragCoord.z;
+    float x = texture(samp, uv).x;
+    color = vec3(x, x, x);
 }

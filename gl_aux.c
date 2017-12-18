@@ -22,8 +22,9 @@ void __check_gl_error(const char *file, int line)
 
 void __check_gl_framebuffer(GLint framebuffer, const char *file, int line)
 {
+    (void) framebuffer;
     const char *err = "Unknown";
-    switch (glCheckFramebufferStatus(framebuffer)) {
+    switch (glCheckFramebufferStatus(GL_FRAMEBUFFER)) {
     case GL_FRAMEBUFFER_COMPLETE: return;
     #define c(e) case e: err = #e;
     c(GL_FRAMEBUFFER_UNDEFINED);

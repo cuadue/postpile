@@ -4,13 +4,10 @@
 
 struct LmDebug {
     void init(const char *vert_file, const char *frag_file);
-    void draw(const Drawlist &drawlist);
+    void draw(const Drawlist &drawlist, GLuint texture);
 
     GLuint program;
-
-    UniformMat4 MVP;
     VertexAttribArray vertex;
-
-    GLuint framebuffer;
-    GLuint texture_target;
+    VertexAttribArray uv;
+    UniformInt texture_uniform;
 };
