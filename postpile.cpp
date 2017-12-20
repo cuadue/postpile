@@ -560,7 +560,7 @@ int main()
     tiles_init(&tile_gen, 123);
 
     struct timeval starttime, frametime;
-    float avg_fps = 30;
+    float avg_frametime = 16;
     float avg_tiles_count = 500;
     int i=0;
 
@@ -574,20 +574,19 @@ int main()
         draw(tile_gen, meshes);
         lmdebug_draw(meshes.lmdebug_mesh);
 
-        glfwPollEvents();
-        glfwSwapBuffers(window);
-
         if (gettimeofday(&frametime, NULL) < 0) {
             perror("gettimeofday");
         }
 
+        glfwSwapBuffers(window);
+
         float dsec = frametime.tv_sec - starttime.tv_sec;
         suseconds_t dusec = frametime.tv_usec - starttime.tv_usec;
 
-        float this_fps = 1/(dsec + dusec/1e6);
-        avg_fps += (this_fps - avg_fps) * 0.1;
+        float this_frametime = 1e3*dsec + dusec/1e3;
+        avg_frametime += (this_frametime - avg_frametime) * 0.1;
         avg_tiles_count += (draw_tile_count - avg_tiles_count) * 0.1;
         if (i++ % 600 == 0)
-            printf("%g tiles -> %g fps\n", avg_tiles_count, avg_fps);
+            printf("%g tiles -> %g ms\n", avg_tiles_count, avg_frametime);
     }
 }
