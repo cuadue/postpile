@@ -23,6 +23,8 @@ void LmDebug::draw(const Drawlist &drawlist, GLuint texture)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     glDrawBuffer(GL_BACK);
 
@@ -41,5 +43,6 @@ void LmDebug::draw(const Drawlist &drawlist, GLuint texture)
     vertex.disable(drawlist.mesh->vertex_buffer);
     uv.disable(drawlist.mesh->uv_buffer);
 
+    glDisable(GL_BLEND);
     check_gl_error();
 }
