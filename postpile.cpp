@@ -54,6 +54,7 @@ map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
 gl3_material cursor_mtl;
 LmDebug lmdebug;
+int debug_show_lightmap = 0;
 Depthmap depthmap;
 
 struct Meshes {
@@ -418,6 +419,7 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
 void lmdebug_draw(const gl3_mesh &mesh)
 {
+    if (!debug_show_lightmap) return;
     Drawlist drawlist;
     drawlist.mesh = &mesh;
     drawlist.groups["plane"].push_back(Drawlist::Model());
@@ -468,6 +470,8 @@ void key_callback(GLFWwindow *, int key, int , int action, int )
             case GLFW_KEY_Q: move(5); break;
 
             case GLFW_KEY_R: view.yaw++; break;
+
+            case GLFW_KEY_F1: debug_show_lightmap ^= 1; break;
         }
     }
 }
