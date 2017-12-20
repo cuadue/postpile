@@ -413,6 +413,9 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    drawlist.shadow_view_projection = depthmap.view_projection;
+    drawlist.depth_map = depthmap.texture_target;
+
     draw_mouse_cursor(tile_gen, meshes);
     render_post.draw(drawlist);
 }

@@ -57,16 +57,13 @@ struct gl3_group {
 
 struct gl3_material {
     gl3_material();
+    gl3_material(GLuint texture_) : texture(texture_) {}
     gl3_material(
         const wf_material &,
         SDL_Surface *(*load_texture)(const char *));
 
-    GLfloat shininess;
-    GLfloat specular[4], diffuse[4];
     GLuint texture;
-    int index;
-    void setup(const UniformInt& diffuse_map) const;
-    void set_diffuse(const std::vector<GLfloat> &);
+    int activate(int index) const;
 };
 
 struct VertexArrayObject {
@@ -110,6 +107,9 @@ struct Drawlist {
     const gl3_mesh *mesh;
     glm::mat4 view;
     glm::mat4 projection;
+    glm::mat4 shadow_view_projection;
+
+    GLuint depth_map;
 
     struct Model {
         const gl3_material *material;

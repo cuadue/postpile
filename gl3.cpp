@@ -56,12 +56,12 @@ void Uniform<float>::set(const float &value) const
 
 gl3_material::gl3_material() {}
 
-void gl3_material::setup(const UniformInt& diffuse_map) const
+int gl3_material::activate(int index) const
 {
-    diffuse_map.set(index);
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, texture);
     check_gl_error();
+    return index;
 }
 
 gl3_group::gl3_group(const wf_group& wf)
@@ -206,20 +206,11 @@ static GLuint load_texture_2d(SDL_Surface *surf)
     return ret;
 }
 
-static int next_index = 0;
 gl3_material::gl3_material(
     const wf_material &wf,
     SDL_Surface *(*load_texture)(const char *path))
 {
     assert(load_texture);
-    index = next_index++;
-
-    for (int i = 0; i < 4; i++) {
-        diffuse[i] = wf.diffuse.color[i];
-        specular[i] = wf.specular.color[i];
-    }
-
-    shininess = wf.specular_exponent;
 
     string texture_file = wf.diffuse.texture_file;
 

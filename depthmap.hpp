@@ -8,6 +8,7 @@ struct Depthmap {
 
     GLuint program;
 
+    glm::mat4 view_projection;
     UniformMat4 MVP;
     VertexAttribArray vertex;
 

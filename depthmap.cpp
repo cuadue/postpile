@@ -59,7 +59,7 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
     glm::mat4 projection = glm::ortho<float>(-20, 20, -20, 20, -20, 20);
     glm::mat4 view = glm::lookAt(light_direction, glm::vec3(0, 0, 0),
                                  glm::vec3(0, 1, 0));
-    glm::mat4 view_projection = projection * view * offset;
+    view_projection = projection * view * offset;
 
     check_gl_error();
 

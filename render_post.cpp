@@ -13,6 +13,8 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
 
     MVP.init(program, "MVP");
     N.init(program, "N");
+    shadow_MVP.init(program, "shadow_MVP");
+    shadow_map.init(program, "shadow_map");
 
     visibility.init(program, "visibility");
     diffuse_map.init(program, "diffuse_map");
@@ -43,6 +45,8 @@ void RenderPost::draw(const Drawlist &drawlist)
     light_vec.set(drawlist.lights.direction);
     light_color.set(drawlist.lights.color);
 
+    shadow_map.set(gl3_material(drawlist.depth_map).activate(2));
+
     for (const auto &pair : drawlist.groups) {
         const std::string &group_name = pair.first;
         std::map<const gl3_material*, std::vector<const Drawlist::Model*>>
@@ -59,9 +63,13 @@ void RenderPost::draw(const Drawlist &drawlist)
 
         for (const auto &pair : grouped) {
             assert(pair.first);
-            pair.first->setup(diffuse_map);
+
+            diffuse_map.set(pair.first->activate(1));
+
             for (const auto &model : pair.second) {
-                MVP.set(view_projection * model->model_matrix);
+                glm::mat4 mm = model->model_matrix;
+                shadow_MVP.set(drawlist.shadow_view_projection * mm);
+                MVP.set(view_projection * mm);
                 visibility.set(model->visibility);
                 N.set(glm::mat3(1));
                 drawlist.mesh->draw_group(group_name);
