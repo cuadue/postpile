@@ -9,8 +9,22 @@ A doodle inspired by RPGs and hexagonal games. The controls are:
 
                   backward
 
-Building requires `glm`, `SDL2`, `SDL_image`, `OpenGL`, and a working POSIX
-build system:
+    F zooms in
+    V zooms out
+    T pitches up
+    G pitches down
+
+    F1 Toggles a debug lightmap
+
+Building requires a working POSIX build system and:
+
+    glm
+    SDL2
+    SDL2_image
+    glew
+    glfw3
+
+Then:
 
     make && ./postpile
 
