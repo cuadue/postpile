@@ -8,6 +8,8 @@ extern "C" {
 #include "gl3.hpp"
 #include "depthmap.hpp"
 
+#define TEXTURE_SIZE (1<<12)
+
 void Depthmap::init(const char *vert_file, const char *frag_file)
 {
     check_gl_error();
@@ -27,7 +29,8 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
     glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                          texture_target, 0);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16, 2048, 2048, 0,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT16,
+                 TEXTURE_SIZE, TEXTURE_SIZE, 0,
                  GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -44,7 +47,7 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
 void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glViewport(0, 0, 2048, 2048);
+    glViewport(0, 0, TEXTURE_SIZE, TEXTURE_SIZE);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(program);
     check_gl_error();
