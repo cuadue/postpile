@@ -331,7 +331,7 @@ Light astro_light(float t, glm::vec3 base_color, int bias_sign)
     float angle = 2.0 * M_PI * t;
     float x = sin(angle);
     float y = cos(angle) + bias_sign * astro_bias();
-    glm::vec3 direction(x, 0, y);
+    glm::vec3 direction(x, 0.17, y);
 
     float brightness = (y - HORIZON) / HORIZON;
     glm::vec3 color = CLAMP(brightness, 0, 1) * base_color;
