@@ -26,6 +26,13 @@ void LmDebug::draw(const Drawlist &drawlist, GLuint texture)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    GLint compare_func = 0;
+    GLint compare_mode = 0;
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, &compare_func);
+    glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, &compare_mode);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_NEVER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_NONE);
+
     glDrawBuffer(GL_BACK);
 
     drawlist.mesh->activate();
@@ -42,6 +49,9 @@ void LmDebug::draw(const Drawlist &drawlist, GLuint texture)
 
     vertex.disable(drawlist.mesh->vertex_buffer);
     uv.disable(drawlist.mesh->uv_buffer);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, compare_func);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, compare_mode);
 
     glDisable(GL_BLEND);
     check_gl_error();
