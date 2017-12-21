@@ -361,8 +361,18 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     drawlist.view = view_matrix();
     drawlist.projection = proj_matrix;
 
-    drawlist.lights.put(astro_light(game_time.fractional_day(), sun_color, 1));
-    drawlist.lights.put(astro_light(game_time.fractional_night(), moon_color, -1));
+    auto sun = astro_light(game_time.fractional_day(), sun_color, 1);
+    auto moon = astro_light(game_time.fractional_night(), moon_color, -1);
+
+    // Index 0 is the shadow
+    if (sun.direction.z > 0.1) {
+        drawlist.lights.put(sun);
+        drawlist.lights.put(moon);
+    }
+    else if (moon.direction.z > 0.1) {
+        drawlist.lights.put(moon);
+        drawlist.lights.put(sun);
+    }
 
     // For benchmarking
     draw_tile_count = 0;

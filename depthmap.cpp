@@ -80,6 +80,7 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
     check_gl_error();
     glDrawBuffer(GL_NONE);
 
+    if (!drawlist.lights.direction.size()) return;
     glm::vec3 light_direction = drawlist.lights.direction[0];
     check_gl_error();
 
