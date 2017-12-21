@@ -1,7 +1,7 @@
 #version 330 core
 
 uniform sampler2D diffuse_map;
-uniform sampler2D shadow_map;
+uniform sampler2DShadow shadow_map;
 
 uniform mat3 N;
 
@@ -19,10 +19,10 @@ out vec3 color;
 
 const float ambient = 0.15;
 
-bool in_shadow()
+float shadow_intensity()
 {
     vec4 biased = 0.5 * (1 + shadow_coord);
-    return texture(shadow_map, biased.xy).x < biased.z - 0.001;
+    return 0.2 + 0.8 * texture(shadow_map, vec3(biased.xy, biased.z - 0.001));
 }
 
 void main()
@@ -35,12 +35,9 @@ void main()
         light += light_color[i] * dot(normal, light_vec[i]);
     }
 
-    vec3 shadow_intensity = vec3(1, 1, 1);
-    if (in_shadow()) shadow_intensity *= 0.5;
-
     color = texture(diffuse_map, uv).rgb *
             clamp(fadeout, 0, 1) *
             clamp(atan(ambient + light), 0, 1) *
             clamp(visibility, 0, 1) *
-            shadow_intensity;
+            shadow_intensity();
 }

@@ -475,6 +475,8 @@ void key_callback(GLFWwindow *, int key, int , int action, int )
             case GLFW_KEY_R: view.yaw++; break;
 
             case GLFW_KEY_F1: debug_show_lightmap ^= 1; break;
+            case GLFW_KEY_F2: depthmap.shrink_texture(); break;
+            case GLFW_KEY_F3: depthmap.grow_texture(); break;
         }
     }
 }

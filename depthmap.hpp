@@ -5,6 +5,9 @@
 struct Depthmap {
     void init(const char *vert_file, const char *frag_file);
     void render(const Drawlist &drawlist, glm::mat4 model);
+    void resize_texture(int size);
+    void shrink_texture();
+    void grow_texture();
 
     GLuint program;
 
@@ -14,5 +17,6 @@ struct Depthmap {
 
     GLuint framebuffer;
     GLuint texture_target;
+    int texture_size;
 };
 
