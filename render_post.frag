@@ -25,6 +25,8 @@ float shadow_intensity()
     return 0.2 + 0.8 * texture(shadow_map, vec3(biased.xy, biased.z - 0.001));
 }
 
+const float k_sat = 0.3;
+
 void main()
 {
     float fadeout = 1 + elevation / 2;
@@ -35,9 +37,11 @@ void main()
         light += light_color[i] * dot(normal, light_vec[i]);
     }
 
+    float shadow = shadow_intensity();
+    light *= shadow;
+
     color = texture(diffuse_map, uv).rgb *
             clamp(fadeout, 0, 1) *
-            clamp(atan(ambient + light), 0, 1) *
-            clamp(visibility, 0, 1) *
-            shadow_intensity();
+            clamp(atan(k_sat * light)/k_sat, ambient, 1) *
+            clamp(visibility, 0, 1);
 }
