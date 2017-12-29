@@ -3,10 +3,9 @@ all: Postpile.app
 LDFLAGS += -framework OpenGL
 else
 all: postpile
-LDFLAGS += -framework OpenGL
 endif
 
-PKGS = glew glfw3 glm
+PKGS = glew glfw3
 
 CFLAGS += -Werror -Wall -Wextra -std=c99 -O1
 
