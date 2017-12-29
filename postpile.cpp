@@ -4,10 +4,6 @@
 #include <algorithm>
 
 #include <GL/glew.h>
-#include <SDL.h>
-#include <SDL_error.h>
-#include <SDL_image.h>
-
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
@@ -113,27 +109,10 @@ fir_filter<float> filtered_elevation(view_filter_coeffs, 0);
 
 Time game_time(view_filter_coeffs);
 
-void libs_print_err() {
-    fprintf(stderr, "SDL Error: %s\n", SDL_GetError());
-    fprintf(stderr, "IMG Error: %s\n", IMG_GetError());
-}
-
 void error_callback(int, const char* msg)
 {
     fprintf(stderr, "GLFW Error: %s\n", msg);
 }
-
-#define libs_assert(x) if (!(x)) \
-    {fprintf(stderr, "%s:%d Assert failed: %s\n", __FILE__, __LINE__, #x); \
-        libs_print_err(); exit(1); }
-
-/*
-static void set_msaa(int buf, int samp)
-{
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, buf);
-    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, samp);
-}
-*/
 
 static GLFWwindow *make_window()
 {
@@ -201,7 +180,7 @@ map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
         wf_material w;
         w.diffuse.color = vec4(1, 1, 1, 1);
         w.diffuse.texture_file = p.second;
-        ret[p.first] = gl3_material(w, IMG_Load);
+        ret[p.first].init(w);
     }
 
     popd(olddir);
@@ -514,7 +493,7 @@ void tick()
 
 int main()
 {
-    libs_assert(glfwInit());
+    assert(glfwInit());
     glfwSetErrorCallback(error_callback);
 
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT,GL_TRUE);
@@ -522,11 +501,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
 
-    //set_msaa(1, 4);
-    if (!(window = make_window())) {
-        //set_msaa(0, 0);
-        libs_assert((window = make_window()));
-    }
+    assert(window = make_window());
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
@@ -535,7 +510,6 @@ int main()
 
     check_gl_error();
 
-    libs_assert(IMG_Init(IMG_INIT_PNG) == IMG_INIT_PNG);
     fprintf(stderr, "GL Vendor: %s\n", glGetString(GL_VENDOR));
     check_gl_error();
     fprintf(stderr, "GL Renderer: %s\n", glGetString(GL_RENDERER));

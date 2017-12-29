@@ -1,26 +1,25 @@
-all: postpile
-
-PKGS = glew glfw3
 ifeq ($(shell uname), Darwin)
+all: Postpile.app
+LDFLAGS += -framework OpenGL
+else
+all: postpile
 LDFLAGS += -framework OpenGL
 endif
 
+PKGS = glew glfw3 glm
+
 CFLAGS += -Werror -Wall -Wextra -std=c99 -O1
-CFLAGS += -Iglm
 
 CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1
-CXXFLAGS += $(shell sdl2-config --cflags)
 CXXFLAGS += $(shell pkg-config --static --cflags $(PKGS))
-CXXFLAGS += -Iglm
 
-LDFLAGS += $(shell sdl2-config --libs) -lSDL2_image
-LDFLAGS += -lm
 LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
-
+LDFLAGS += -lm
 
 OBJS = postpile.o wavefront.o wavefront_mtl.o hex.o
 OBJS += tiles.o osn.o time.o render_post.o
 OBJS += gl3.o gl3_aux.o gl_aux.o lmdebug.o depthmap.o
+OBJS += stb_image.o
 
 tex:
 	mkdir -p $@
@@ -36,7 +35,7 @@ postpile.o: postpile.cpp fir_filter.hpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 postpile: $(OBJS) tex
-	$(CXX) -o $@ $(OBJS) $(LDFLAGS) 
+	$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 ifeq ($(shell uname), Darwin)
 Postpile.app: postpile tex post.obj
@@ -44,9 +43,13 @@ Postpile.app: postpile tex post.obj
 	cp -a postpile $@/Contents/MacOS/_postpile
 	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
 	cp -a *.obj tex $@/Contents/MacOS
+	cp *.vert *.frag $@/Contents/MacOS
+	cp "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
+	cp "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
 endif
 
 clean:
 	rm -f $(OBJS)
 	rm -f postpile
 	rm -rf tex
+	rm -rf Postpile.app

@@ -1,2 +1,7 @@
 *.sw[po]
 *.o
+postpile
+tex/
+**/tags
+Postpile.app
+**/.DS_Store

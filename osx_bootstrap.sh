@@ -1,3 +1,3 @@
 #!/bin/bash
 cd "$(dirname "${BASH_SOURCE[0]}")"
-DYLD_LIBRARY_PATH=.:../Frameworks exec ./_postpile
+DYLD_FALLBACK_LIBRARY_PATH=. exec ./_postpile

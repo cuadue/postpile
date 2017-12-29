@@ -4,7 +4,6 @@
 #include <map>
 #include <vector>
 
-#include <SDL.h>
 #include <GL/glew.h>
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -56,14 +55,11 @@ struct gl3_group {
 };
 
 struct gl3_material {
-    gl3_material();
-    gl3_material(GLuint texture_) : texture(texture_) {}
-    gl3_material(
-        const wf_material &,
-        SDL_Surface *(*load_texture)(const char *));
-
-    GLuint texture;
+    gl3_material() {}
+    explicit gl3_material(GLuint tex) : texture(tex) {}
+    void init(const wf_material &);
     int activate(int index) const;
+    GLuint texture;
 };
 
 struct VertexArrayObject {

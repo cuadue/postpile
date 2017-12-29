@@ -3,6 +3,7 @@
 extern "C" {
 #include "gl3_aux.h"
 #include "gl_aux.h"
+#include "stb_image.h"
 }
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/io.hpp>
@@ -53,8 +54,6 @@ void Uniform<float>::set(const float &value) const
     glUniform1f(location, value);
     check_gl_error();
 }
-
-gl3_material::gl3_material() {}
 
 int gl3_material::activate(int index) const
 {
@@ -165,7 +164,8 @@ void gl3_mesh::draw_group(const string &name) const
     check_gl_error();
 }
 
-static GLuint load_texture_2d(SDL_Surface *surf)
+// Assumes data is 8 bit per pixel, RGBA
+static GLuint load_texture_2d(uint8_t *data, int w, int h)
 {
     GLuint ret;
     glGenTextures(1, &ret);
@@ -186,43 +186,26 @@ static GLuint load_texture_2d(SDL_Surface *surf)
         fprintf(stderr, "Anisotropic filtering not supported\n");
     }
 
-    SDL_Surface *converted = SDL_ConvertSurfaceFormat(
-            surf, SDL_PIXELFORMAT_RGBA8888, 0);
-    surf = NULL;
-
-    if (converted) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, converted->w, converted->h,
-                     0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, converted->pixels);
-        check_gl_error();
-        SDL_FreeSurface(converted);
-        converted = NULL;
-    }
-    else {
-        fprintf(stderr, "Failed to convert texture: %s\n", SDL_GetError());
-        ret = 0;
-    }
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h,
+                 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    check_gl_error();
     glGenerateMipmap(GL_TEXTURE_2D);
 
     return ret;
 }
 
-gl3_material::gl3_material(
-    const wf_material &wf,
-    SDL_Surface *(*load_texture)(const char *path))
-{
-    assert(load_texture);
-
+void gl3_material::init(const wf_material &wf) {
     string texture_file = wf.diffuse.texture_file;
+    if (!texture_file.size()) return;
 
-    if (texture_file.size()) {
-        SDL_Surface *surf;
-        if ((surf = load_texture(texture_file.c_str()))) {
-            texture = load_texture_2d(surf);
-            SDL_FreeSurface(surf);
-        }
-        else {
-            perror(texture_file.c_str());
-            texture = 0;
-        }
+    int h = 0, w = 0, n = 0;
+    uint8_t *data = stbi_load(texture_file.c_str(), &w, &h, &n, 4);
+    if (!data) {
+        fprintf(stderr, "%s: %s\n", texture_file.c_str(),
+            stbi_failure_reason());
+        return;
     }
+
+    texture = load_texture_2d(data, w, h);
+    stbi_image_free(data);
 }
