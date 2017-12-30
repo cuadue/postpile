@@ -45,6 +45,7 @@ using namespace glm;
 int draw_tile_count = 0;
 
 mat4 proj_matrix;
+mat4 view_matrix;
 vec2 mouse;
 map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
@@ -61,16 +62,12 @@ struct Meshes {
 std::vector<Triangle> post_triangles;
 RenderPost render_post;
 
-// scipy.signal.firwin(40, 0.01)
+// scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {
-    0.00358851,  0.00388049,  0.00470869,  0.00606107,  0.00791063,
-    0.01021609,  0.01292289,  0.01596464,  0.01926486,  0.0227391 ,
-    0.02629727,  0.02984614,  0.03329195,  0.03654306,  0.03951257,
-    0.04212075,  0.04429733,  0.04598353,  0.04713372,  0.04771672,
-    0.04771672,  0.04713372,  0.04598353,  0.04429733,  0.04212075,
-    0.03951257,  0.03654306,  0.03329195,  0.02984614,  0.02629727,
-    0.0227391 ,  0.01926486,  0.01596464,  0.01292289,  0.01021609,
-    0.00791063,  0.00606107,  0.00470869,  0.00388049,  0.00358851
+    0.00764156,  0.01005217,  0.01700178,  0.02776751,  0.04120037,
+    0.05585069,  0.07012762,  0.0824749 ,  0.09154324,  0.09634015,
+    0.09634015,  0.09154324,  0.0824749 ,  0.07012762,  0.05585069,
+    0.04120037,  0.02776751,  0.01700178,  0.01005217,  0.00764156
 };
 
 // scipy.signal.firwin(10, 0.01)
@@ -108,6 +105,7 @@ fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
 fir_filter<float> filtered_elevation(view_filter_coeffs, 0);
 
+char float_index(const string &coll, float x);
 Time game_time(view_filter_coeffs);
 
 void error_callback(int, const char* msg)
@@ -185,9 +183,20 @@ map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
     return ret;
 }
 
-// TODO This function is not idempotent, in particular it advances several
-// filters each time it's called. Yikes.
-glm::mat4 view_matrix()
+float hex_elevation(const tile_generator &tile_gen, HexCoord<int> coord)
+{
+    Point<double> center = hex_to_pixel(coord);
+    return 5 * tile_value(&tile_gen, center.x, center.y);
+}
+
+char hex_tile(const tile_generator &tile_gen, const string &coll, HexCoord<int> coord)
+{
+    Point<double> center = hex_to_pixel(coord);
+    float elevation = tile_value(&tile_gen, center.x, center.y);
+    return float_index(coll, elevation);
+}
+
+glm::mat4 advance_view_matrix(const tile_generator &tile_gen)
 {
     // yaw = 0 -> looking up the positive Y-axis
     // yaw is negative because... fudge factor
@@ -200,7 +209,10 @@ glm::mat4 view_matrix()
                       -distance * sin(angle) * cos(pitch),
                       distance * sin(pitch));
 
-    glm::vec3 target_center(c.x, c.y, 0);
+    float view_elevation = hex_elevation(tile_gen, view.center);
+    float elevation_offset = filtered_elevation.next(view_elevation);
+
+    glm::vec3 target_center(c.x, c.y, elevation_offset);
     vec3 center = center_filter.next(target_center);
     view.filtered_center = pixel_to_hex_double(center.x, center.y);
     vec3 eye = center + relative_eye;
@@ -223,16 +235,17 @@ char float_index(const string &coll, float x)
 }
 
 static inline
-HexCoord<int> hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse)
+HexCoord<int> hex_under_mouse_inner(glm::mat4 inv_mvp, glm::vec2 mouse, float elevation)
 {
+    (void)elevation;
     // Define two points in screen space
     glm::vec4 screen_a(mouse.x, mouse.y, -1, 1);
     glm::vec4 screen_b(mouse.x, mouse.y, 1, 1);
 
     // Transform them into object space
-    glm::vec4 a(glm::inverse(mvp) * screen_a);
+    glm::vec4 a(inv_mvp * screen_a);
     a /= a.w;
-    glm::vec4 b(glm::inverse(mvp) * screen_b);
+    glm::vec4 b(inv_mvp * screen_b);
     b /= b.w;
 
     // Draw a line through the two points and intersect with the Z plane
@@ -268,16 +281,37 @@ vector<HexCoord<int>> visible_hexes()
     return hex_range(MAX_VIEW_DISTANCE+1, view.center);
 }
 
+vector<HexCoord<int>> selectable_hexes()
+{
+    // No +1 hides the vertically sliding tiles on the margin
+    return hex_range(MAX_VIEW_DISTANCE, view.center);
+}
+
+
+static inline
+HexCoord<int> hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse, const tile_generator &tile_gen)
+{
+    glm::mat4 inv_mvp = glm::inverse(mvp);
+    (void)inv_mvp ;
+    (void)mouse;
+    (void)tile_gen;
+
+    for (const HexCoord<int>& coord : selectable_hexes()) {
+        (void)coord;
+    }
+    return HexCoord<int>();
+}
+
 void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
 {
     check_gl_error();
-    mat4 vm = view_matrix();
-    mat4 view_proj = proj_matrix * vm;
+    mat4 view_proj = proj_matrix * view_matrix;
     int window_h = 0, window_w = 0;
     glfwGetWindowSize(window, &window_w, &window_h);
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
-    struct HexCoord<int> mouse_hex = hex_under_mouse(view_proj, offset_mouse);
+    struct HexCoord<int> mouse_hex =
+        hex_under_mouse(view_proj, offset_mouse, tile_gen);
     int distance = hex_distance(mouse_hex, view.center);
     if (distance > MAX_VIEW_DISTANCE) {
         return;
@@ -288,10 +322,11 @@ void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
 
     Drawlist drawlist;
     drawlist.mesh = &meshes.cursor_mesh;
-    drawlist.view = view_matrix();
+    drawlist.view = view_matrix;
     drawlist.projection = proj_matrix;
     Drawlist::Item item;
-    item.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
+    item.model_matrix =
+        hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
     item.material = &cursor_mtl;
 
     drawlist.items.push_back(item);
@@ -331,11 +366,9 @@ double cliff(double distance)
 
 void draw(const tile_generator &tile_gen, const Meshes &meshes)
 {
-    // TODO gl3_light();
-
     Drawlist drawlist;
     drawlist.mesh = &meshes.post_mesh;
-    drawlist.view = view_matrix();
+    drawlist.view = view_matrix;
     drawlist.projection = proj_matrix;
 
     auto sun = astro_light(game_time.fractional_day(), sun_color, 1);
@@ -354,28 +387,20 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     // For benchmarking
     draw_tile_count = 0;
 
-    Point<double> view_center = hex_to_pixel(view.center);
-    float center_elevation = -5 * tile_value(&tile_gen,
-        view_center.x, view_center.y);
-
-    float elevation_offset = filtered_elevation.next(center_elevation);
-
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
         Drawlist::Item side;
-        Point<double> center = hex_to_pixel(coord);
         double distance = hex_distance(
             HexCoord<double>::from(coord),
             view.filtered_center);
 
-        float elevation = tile_value(&tile_gen, center.x, center.y);
+        float elevation = hex_elevation(tile_gen, coord);
 
         mat4 mm = hex_model_matrix(coord.q, coord.r,
-            5 * elevation - 0.5 - CLIFF_HEIGHT * cliff(distance) +
-            elevation_offset);
+            elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
 
-        char top_tile = float_index(top_tileset, elevation);
-        char side_tile = float_index(side_tileset, elevation);
+        char top_tile = hex_tile(tile_gen, top_tileset, coord);
+        char side_tile = hex_tile(tile_gen, side_tileset, coord);
 
         top.model_matrix = mm;
         top.group = "hex_top";
@@ -487,11 +512,12 @@ void handle_static_keys()
     if (key_is_pressed(GLFW_KEY_G)) pitch_down();
 }
 
-void tick()
+void tick(const tile_generator &tile_gen)
 {
     view.pitch.step();
     view.distance.step();
     game_time.step();
+    view_matrix = advance_view_matrix(tile_gen);
 }
 
 int main()
@@ -565,7 +591,7 @@ int main()
         }
         glfwPollEvents();
         handle_static_keys();
-        tick();
+        tick(tile_gen);
         draw(tile_gen, meshes);
         lmdebug_draw(meshes.lmdebug_mesh);
 
