@@ -33,9 +33,8 @@ typedef Uniform<int> UniformInt;
 typedef Uniform<float> UniformFloat;
 
 struct ArrayBuffer {
-    ArrayBuffer() : present(false) {}
-    ArrayBuffer(const std::vector<float> &data, bool _present);
-    bool present;
+    void init(const std::vector<float> &data, bool _present);
+    bool present = false;
     GLuint buffer;
 };
 
@@ -50,20 +49,20 @@ struct VertexAttribArray {
 struct gl3_group {
     GLuint index_buffer;
     size_t count;
-    explicit gl3_group(const wf_group &wf);
+    void init(const wf_group &wf);
     void draw() const;
 };
 
 struct gl3_material {
     gl3_material() {}
     explicit gl3_material(GLuint tex) : texture(tex) {}
-    void init(const wf_material &);
+    void init(const std::string &path);
     int activate(int index) const;
-    GLuint texture;
+    GLuint texture = UINT_MAX;
 };
 
 struct VertexArrayObject {
-    VertexArrayObject();
+    void init();
     GLuint location;
 };
 
@@ -73,11 +72,10 @@ struct gl3_mesh {
     ArrayBuffer normal_buffer;
     ArrayBuffer uv_buffer;
 
-    std::map<std::string, std::vector<gl3_group>> groups;
+    std::map<std::string, gl3_group> groups;
+    void draw_group(const std::string &group) const;
 
-    gl3_mesh() {}
-    explicit gl3_mesh(const wf_mesh &wf);
-    void draw_group(const std::string &name) const;
+    void init(const wf_mesh &wf);
     void activate() const;
 };
 
@@ -107,16 +105,16 @@ struct Drawlist {
 
     GLuint depth_map;
 
-    struct Model {
+    struct Item {
         const gl3_material *material;
         glm::mat4 model_matrix;
         float visibility;
+        std::string group;
     };
-    struct Group {
-        const char *group_name;
-        std::vector<Model> models;
-    };
-    // Map group name to a bunch of models drawing that group
-    std::map<std::string, std::vector<Model>> groups;
+
+    std::vector<Item> items;
     Lights lights;
 };
+
+void _check_drawlist(const Drawlist &, const char *, int);
+#define CHECK_DRAWLIST(dl) _check_drawlist(dl, __FILE__, __LINE__)

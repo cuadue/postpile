@@ -18,7 +18,6 @@ struct RenderPost {
     VertexAttribArray uv;
 
     UniformMat4 MVP;  // model view projection matrix
-    UniformMat3 N;    // normal matrix
     UniformMat4 shadow_MVP;
 
     UniformInt diffuse_map;

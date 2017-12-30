@@ -73,6 +73,7 @@ void Depthmap::grow_texture()
 
 void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
 {
+    CHECK_DRAWLIST(drawlist);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glViewport(0, 0, texture_size, texture_size);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -94,11 +95,9 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
     drawlist.mesh->activate();
     vertex.activate(drawlist.mesh->vertex_buffer);
 
-    for (const auto &pair : drawlist.groups) {
-        for (const Drawlist::Model &model : pair.second) {
-            MVP.set(view_projection * model.model_matrix);
-            drawlist.mesh->draw_group(pair.first);
-        }
+    for (const Drawlist::Item &item : drawlist.items) {
+        MVP.set(view_projection * item.model_matrix);
+        drawlist.mesh->groups.at(item.group).draw();
     }
 
     vertex.disable(drawlist.mesh->vertex_buffer);

@@ -1,5 +1,8 @@
 #include "render_post.hpp"
 
+#define DIFFUSE_MAP_TEXTURE_INDEX 1
+#define SHADOW_MAP_TEXTURE_INDEX 2
+
 RenderPost::RenderPost() {}
 
 void RenderPost::init(const char *vert_file, const char *frag_file)
@@ -12,7 +15,6 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
     uv.init(program, "vertex_uv", 2);
 
     MVP.init(program, "MVP");
-    N.init(program, "N");
     shadow_MVP.init(program, "shadow_MVP");
     shadow_map.init(program, "shadow_map");
 
@@ -27,6 +29,7 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
 
 void RenderPost::draw(const Drawlist &drawlist)
 {
+    CHECK_DRAWLIST(drawlist);
     check_gl_error();
 
     glEnable(GL_DEPTH_TEST);
@@ -45,35 +48,28 @@ void RenderPost::draw(const Drawlist &drawlist)
     light_vec.set(drawlist.lights.direction);
     light_color.set(drawlist.lights.color);
 
-    shadow_map.set(gl3_material(drawlist.depth_map).activate(2));
+    shadow_map.set(
+        gl3_material(drawlist.depth_map).activate(SHADOW_MAP_TEXTURE_INDEX));
+    diffuse_map.set(DIFFUSE_MAP_TEXTURE_INDEX);
 
-    for (const auto &pair : drawlist.groups) {
-        const std::string &group_name = pair.first;
-        std::map<const gl3_material*, std::vector<const Drawlist::Model*>>
-            grouped;
+    std::map<const gl3_material*, std::vector<const Drawlist::Item*>> sorted;
 
-        for (const Drawlist::Model &model : pair.second) {
-            grouped[model.material].push_back(&model);
-        }
+    // Sorting by material reduces the relatively substantial overhead of
+    // changing the texture.
+    for (const Drawlist::Item &item : drawlist.items) {
+        sorted[item.material].push_back(&item);
+    }
 
-        if (!drawlist.mesh->groups.count(group_name)) {
-            fprintf(stderr, "No mesh group %s\n", group_name.c_str());
-            abort();
-        }
+    for (const auto &pair : sorted) {
+        pair.first->activate(DIFFUSE_MAP_TEXTURE_INDEX);
 
-        for (const auto &pair : grouped) {
-            assert(pair.first);
-
-            diffuse_map.set(pair.first->activate(1));
-
-            for (const auto &model : pair.second) {
-                glm::mat4 mm = model->model_matrix;
-                shadow_MVP.set(drawlist.shadow_view_projection * mm);
-                MVP.set(view_projection * mm);
-                visibility.set(model->visibility);
-                N.set(glm::mat3(1));
-                drawlist.mesh->draw_group(group_name);
-            }
+        for (const auto &item : pair.second) {
+            glm::mat4 mm = item->model_matrix;
+            shadow_MVP.set(drawlist.shadow_view_projection * mm);
+            MVP.set(view_projection * mm);
+            visibility.set(item->visibility);
+            drawlist.mesh->draw_group(item->group);
+            check_gl_error();
         }
     }
 

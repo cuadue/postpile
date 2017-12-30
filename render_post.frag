@@ -3,8 +3,6 @@
 uniform sampler2D diffuse_map;
 uniform sampler2DShadow shadow_map;
 
-uniform mat3 N;
-
 uniform float visibility;
 uniform int num_lights;
 uniform vec3 light_vec[16];
@@ -30,7 +28,7 @@ const float k_sat = 0.3;
 void main()
 {
     float fadeout = 1 + elevation / 2;
-    vec3 normal = normalize(N * normal_frag);
+    vec3 normal = normalize(normal_frag);
 
     vec3 light = vec3(0, 0, 0);
     for (int i = 0; i < min(16, num_lights); i++) {

@@ -57,13 +57,18 @@ void Uniform<float>::set(const float &value) const
 
 int gl3_material::activate(int index) const
 {
+    if (texture == UINT_MAX) {
+        fprintf(stderr, "Uninitialized texture!\n");
+        return texture;
+    }
+
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, texture);
     check_gl_error();
     return index;
 }
 
-gl3_group::gl3_group(const wf_group& wf)
+void gl3_group::init(const wf_group& wf)
 {
     assert(sizeof wf.triangle_indices[0] == 4);
     glGenBuffers(1, &index_buffer);
@@ -86,7 +91,7 @@ void gl3_group::draw() const
     check_gl_error();
 }
 
-VertexArrayObject::VertexArrayObject()
+void VertexArrayObject::init()
 {
     glGenVertexArrays(1, &location);
     assert(location);
@@ -94,9 +99,9 @@ VertexArrayObject::VertexArrayObject()
     check_gl_error();
 }
 
-ArrayBuffer::ArrayBuffer(const std::vector<float> &data, bool _present)
-: present(_present)
+void ArrayBuffer::init(const std::vector<float> &data, bool _present)
 {
+    present = _present;
     if (present) {
         glGenBuffers(1, &buffer);
         glBindBuffer(GL_ARRAY_BUFFER, buffer);
@@ -106,20 +111,24 @@ ArrayBuffer::ArrayBuffer(const std::vector<float> &data, bool _present)
     }
 }
 
-gl3_mesh::gl3_mesh(const wf_mesh& wf)
-: vao()
-, vertex_buffer(wf.vertex4, true)
-, normal_buffer(wf.normal3, wf.has_normals())
-, uv_buffer(wf.texture2, wf.has_texture_coords())
+void gl3_mesh::init(const wf_mesh& wf)
 {
+    vao.init();
+    vertex_buffer.init(wf.vertex4, true);
+    normal_buffer.init(wf.normal3, wf.has_normals());
+    uv_buffer.init(wf.texture2, wf.has_texture_coords());
+
     assert(sizeof wf.vertex4[0] == 4);
     assert(sizeof wf.normal3[0] == 4);
     assert(sizeof wf.texture2[0] == 4);
 
     for (const auto &pair : wf.groups) {
-        for (const wf_group &g : pair.second) {
-            groups[pair.first].push_back(gl3_group(g));
+        if (pair.second.size() != 1) {
+            fprintf(stderr, "Not supporting Wavefront groups of size %lu\n",
+                    pair.second.size());
+            abort();
         }
+        groups[pair.first].init(pair.second[0]);
     }
 
     glBindVertexArray(0);
@@ -156,12 +165,11 @@ void gl3_mesh::activate() const
 
 void gl3_mesh::draw_group(const string &name) const
 {
-    assert(groups.count(name));
-    for (const gl3_group &group : groups.at(name)) {
-        group.draw();
+    if (!groups.count(name)) {
+        fprintf(stderr, "No such group: %s\n", name.c_str());
+        abort();
     }
-
-    check_gl_error();
+    groups.at(name).draw();
 }
 
 // Assumes data is 8 bit per pixel, RGBA
@@ -194,18 +202,47 @@ static GLuint load_texture_2d(uint8_t *data, int w, int h)
     return ret;
 }
 
-void gl3_material::init(const wf_material &wf) {
-    string texture_file = wf.diffuse.texture_file;
+static void checkerboard(uint8_t *p, int w, int h)
+{
+    int q = 0;
+    int r = 255;
+    for (int x = 0; x < w; x++) {
+        for (int y = 0; y < h; y+=2) {
+            for (int k = 0; k < 4; k++) *p++ = q;
+            for (int k = 0; k < 4; k++) *p++ = r;
+        }
+        int t = q; q = r; r = t;
+    }
+}
+
+void gl3_material::init(const std::string &texture_file) {
     if (!texture_file.size()) return;
 
     int h = 0, w = 0, n = 0;
     uint8_t *data = stbi_load(texture_file.c_str(), &w, &h, &n, 4);
-    if (!data) {
+    if (data) {
+        texture = load_texture_2d(data, w, h);
+        stbi_image_free(data);
+    }
+    else {
         fprintf(stderr, "%s: %s\n", texture_file.c_str(),
             stbi_failure_reason());
-        return;
+        #define SIZ 16
+        uint8_t buf[SIZ * SIZ * 4];
+        checkerboard(buf, SIZ, SIZ);
+        texture = load_texture_2d(buf, SIZ, SIZ);
+        #undef SIZ
     }
 
-    texture = load_texture_2d(data, w, h);
-    stbi_image_free(data);
+}
+
+void _check_drawlist(const Drawlist &dl, const char *f, int l)
+{
+    for (const Drawlist::Item &item : dl.items) {
+        if (!dl.mesh->groups.count(item.group)) {
+            fprintf(stderr, "%s:%d: No such group: %s\n",
+                    f, l, item.group.c_str());
+            abort();
+        }
+    }
 }

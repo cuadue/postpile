@@ -40,11 +40,8 @@ void LmDebug::draw(const Drawlist &drawlist, GLuint texture)
     uv.activate(drawlist.mesh->uv_buffer);
     texture_uniform.set(0);
 
-    for (const auto &pair : drawlist.groups) {
-        for (const Drawlist::Model &model : pair.second) {
-            (void)model;
-            drawlist.mesh->draw_group(pair.first);
-        }
+    for (const Drawlist::Item &item : drawlist.items) {
+        drawlist.mesh->draw_group(item.group);
     }
 
     vertex.disable(drawlist.mesh->vertex_buffer);

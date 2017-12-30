@@ -178,10 +178,7 @@ map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
 
     map<char, gl3_material> ret;
     for (const auto &p : texfiles) {
-        wf_material w;
-        w.diffuse.color = vec4(1, 1, 1, 1);
-        w.diffuse.texture_file = p.second;
-        ret[p.first].init(w);
+        ret[p.first].init(p.second);
     }
 
     popd(olddir);
@@ -293,11 +290,11 @@ void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
     drawlist.mesh = &meshes.cursor_mesh;
     drawlist.view = view_matrix();
     drawlist.projection = proj_matrix;
-    Drawlist::Model dlm;
-    dlm.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
-    dlm.material = &cursor_mtl;
+    Drawlist::Item item;
+    item.model_matrix = hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
+    item.material = &cursor_mtl;
 
-    drawlist.groups["cursor"].push_back(dlm);
+    drawlist.items.push_back(item);
     // TODO draw cursor
 }
 
@@ -364,8 +361,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     float elevation_offset = filtered_elevation.next(center_elevation);
 
     for (const HexCoord<int>& coord : visible_hexes()) {
-        Drawlist::Model top;
-        Drawlist::Model side;
+        Drawlist::Item top;
+        Drawlist::Item side;
         Point<double> center = hex_to_pixel(coord);
         double distance = hex_distance(
             HexCoord<double>::from(coord),
@@ -381,15 +378,18 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         char side_tile = float_index(side_tileset, elevation);
 
         top.model_matrix = mm;
+        top.group = "hex_top";
         side.model_matrix = mm;
+        side.group = "side";
         top.visibility = 1 - cliff(distance);
         side.visibility = 1 - cliff(distance);
 
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
 
-        drawlist.groups["hex_top"].push_back(top);
-        drawlist.groups["side"].push_back(side);
+        drawlist.items.push_back(top);
+        drawlist.items.push_back(side);
+
         draw_tile_count++;
     }
 
@@ -415,7 +415,9 @@ void lmdebug_draw(const gl3_mesh &mesh)
     if (!debug_show_lightmap) return;
     Drawlist drawlist;
     drawlist.mesh = &mesh;
-    drawlist.groups["plane"].push_back(Drawlist::Model());
+    Drawlist::Item item;
+    item.group = "plane";
+    drawlist.items.push_back(item);
     lmdebug.draw(drawlist, depthmap.texture_target);
 }
 
@@ -536,13 +538,15 @@ int main()
 
     Meshes meshes;
     meshes.post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
+    meshes.post_mesh.init(wf_mesh_from_file("post.obj"));
     post_triangles = wf_triangles_from_file("post.obj");
+
     assert(meshes.post_mesh.vao.location);
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
 
-    meshes.cursor_mesh = gl3_mesh(wf_mesh_from_file("cursor.obj"));
-    meshes.lmdebug_mesh = gl3_mesh(wf_mesh_from_file("lmdebug.obj"));
+    meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
+    meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };
     tile_gen.harmonics = harmonics;
