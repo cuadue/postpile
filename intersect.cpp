@@ -4,7 +4,7 @@
 
 #define EPSILON 1e-7
 
-int ray_intersects_triangle(const Ray &ray, const Triangle &triangle)
+float ray_intersects_triangle(const Ray &ray, Triangle triangle)
 {
     glm::vec3 edge1 = triangle.vertices[1] - triangle.vertices[0];
     glm::vec3 edge2 = triangle.vertices[2] - triangle.vertices[0];
@@ -12,7 +12,7 @@ int ray_intersects_triangle(const Ray &ray, const Triangle &triangle)
     glm::vec3 h = glm::cross(ray.direction, edge2);
     float a = glm::dot(edge1, h);
     if (std::abs(a) < EPSILON) {
-        return 0;
+        return INFINITY;
     }
 
     float f = 1.0 / a;
@@ -20,16 +20,16 @@ int ray_intersects_triangle(const Ray &ray, const Triangle &triangle)
     float u = f * glm::dot(s, h);
 
     if (u < 0.0 || u > 1.0) {
-        return 0;
+        return INFINITY;
     }
 
     glm::vec3 q = glm::cross(s, edge1);
     float v = f * glm::dot(ray.direction, q);
 
     if (v < 0.0 || u + v > 1.0) {
-        return 0;
+        return INFINITY;
     }
 
     float t = f * glm::dot(edge2, q);
-    return t > EPSILON;
+    return std::abs(t) > EPSILON ? t : INFINITY;
 }

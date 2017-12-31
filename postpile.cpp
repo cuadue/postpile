@@ -29,6 +29,7 @@ extern "C" {
 #include "render_post.hpp"
 #include "lmdebug.hpp"
 #include "depthmap.hpp"
+#include "intersect.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 #define MAX(x, y) ((x) >= (y) ? (x) : (y))
@@ -241,32 +242,6 @@ char float_index(const string &coll, float x)
     return coll.at(CLAMP(x * size, 0, size-1));
 }
 
-static
-HexCoord<int> hex_under_mouse_inner(glm::mat4 inv_view_proj, glm::vec2 mouse, float z_plane)
-{
-    (void)z_plane;
-    // Define two points in screen space
-    glm::vec4 screen_a(mouse.x, mouse.y, -1, 1);
-    glm::vec4 screen_b(mouse.x, mouse.y, 1, 1);
-
-    // Transform them into object space
-    glm::mat4 inv_model = glm::translate(glm::mat4(1), {0, 0, -z_plane});
-    glm::mat4 inv_mvp = inv_model * inv_view_proj;
-
-    glm::vec4 a(inv_mvp * screen_a);
-    a /= a.w;
-    glm::vec4 b(inv_mvp * screen_b);
-    b /= b.w;
-
-    // Draw a line through the two points and intersect with the Z plane
-    double t = a.z / (a.z - b.z);
-    double x = a.x + t * (b.x - a.x);
-    double y = a.y + t * (b.y - a.y);
-
-    HexCoord<int> ret = pixel_to_hex_int(x, y);
-    return ret;
-}
-
 vec2 to_vec2(Point<double> p)
 {
     return vec2(p.x, p.y);
@@ -297,32 +272,63 @@ vector<HexCoord<int>> selectable_hexes()
     return hex_range(MAX_VIEW_DISTANCE, view.center);
 }
 
-
-static inline
-HexCoord<int> hex_under_mouse(glm::mat4 view_proj, glm::vec2 mouse, const tile_generator &tile_gen)
+float min_distance_to_hex(
+    const Ray &ray,
+    const tile_generator &tile_gen,
+    const HexCoord<int> coord)
 {
-    glm::mat4 inv_view_proj = glm::inverse(view_proj);
+    glm::mat4 mv = view_matrix * hex_model_matrix(tile_gen, coord);
+    float ret = INFINITY;
+    for (Triangle triangle : post_triangles) {
+        for (int i = 0; i < 3; i++) {
+            glm::vec4 v = mv * glm::vec4(triangle.vertices[i], 1);
+            triangle.vertices[i] = glm::vec3(v);
+        }
+
+        ret = std::min(ret, ray_intersects_triangle(ray, triangle));
+    }
+    return ret;
+}
+
+// TODO measure the cost of this computation. It's a great candidate for
+// threading.
+static inline
+HexCoord<int> hex_under_mouse(glm::vec2 mouse, const tile_generator &tile_gen)
+{
+    // All mouse calculations are in model-view space, without projection.
+    glm::mat4 inv_projection = glm::inverse(proj_matrix);
+    glm::vec4 o = inv_projection * glm::vec4{mouse.x, mouse.y, 0, 1};
+    glm::vec4 d = inv_projection * glm::vec4{mouse.x, mouse.y, 1, 1};
+
+    Ray ray = {
+        .origin = glm::vec3(o / o.w),
+        .direction = glm::vec3(d / d.w)
+    };
+
+    float min_distance = INFINITY;
+    HexCoord<int> ret {INT_MAX, INT_MAX};
 
     for (const HexCoord<int>& coord : selectable_hexes()) {
-        float z = hex_elevation(tile_gen, coord);
-        HexCoord<int> tested = hex_under_mouse_inner(inv_view_proj, mouse, z);
-        if (tested.q == coord.q && tested.r == coord.r) {
-            return tested;
+        float distance = min_distance_to_hex(ray, tile_gen, coord);
+
+        if (distance < min_distance) {
+            min_distance = distance;
+            ret = coord;
         }
     }
-    return {INT_MAX, INT_MAX};
+
+    return ret;
 }
 
 void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
 {
     check_gl_error();
-    mat4 view_proj = proj_matrix * view_matrix;
     int window_h = 0, window_w = 0;
     glfwGetWindowSize(window, &window_w, &window_h);
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
     struct HexCoord<int> mouse_hex =
-        hex_under_mouse(view_proj, offset_mouse, tile_gen);
+        hex_under_mouse(offset_mouse, tile_gen);
     int distance = hex_distance(mouse_hex, view.center);
     if (distance > MAX_VIEW_DISTANCE) {
         return;
@@ -333,10 +339,13 @@ void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
     drawlist.view = view_matrix;
     drawlist.projection = proj_matrix;
     Drawlist::Item item;
+    Light light = {.direction={0, 0, 1}, .color={1, 1, 1}};
+    drawlist.lights.put(light);
     item.model_matrix = glm::translate(
         hex_model_matrix(tile_gen, mouse_hex), {0, 0, 0.1});
     item.material = &cursor_mtl;
     item.group = "cursor";
+    item.visibility = 1;
 
     drawlist.items.push_back(item);
     render_post.draw(drawlist);
@@ -427,7 +436,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
     // TODO get rid of this offset
     depthmap.render(drawlist,
-        hex_model_matrix(tile_gen, view.center) * glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
+        hex_model_matrix(tile_gen, view.center) *
+        glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int w = 0, h = 0;

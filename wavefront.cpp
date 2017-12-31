@@ -638,13 +638,15 @@ std::vector<Triangle> wf_triangles_from_file(const char *path)
 
     std::vector<Triangle> ret;
     Parse parse = parse_objfile(fp);
-    size_t count = parse.vertices.size();
+    std::vector<glm::vec4> derefed = deref_triangles<Face::VERTEX>(
+            parse.faces, parse.vertices);
+    size_t count = derefed.size();
 
     for (size_t i = 0; i + 2 < count; i += 3) {
         Triangle triangle;
-        triangle.vertices[0] = glm::vec3(parse.vertices[i]);
-        triangle.vertices[1] = glm::vec3(parse.vertices[i+1]);
-        triangle.vertices[2] = glm::vec3(parse.vertices[i+2]);
+        for (int k = 0; k < 3; k++) {
+            triangle.vertices[k] = glm::vec3(derefed[i + k] / derefed[i + k].w);;
+        }
         ret.push_back(triangle);
     }
     return ret;

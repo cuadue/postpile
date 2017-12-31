@@ -7,4 +7,4 @@ struct Ray {
     glm::vec3 origin, direction;
 };
 
-int ray_intersects_triangle(const Ray &ray, const Triangle &triangle);
+float ray_intersects_triangle(const Ray &, Triangle);
