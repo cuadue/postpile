@@ -43,8 +43,8 @@ Postpile.app: postpile tex post.obj
 	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
 	cp -a *.obj tex $@/Contents/MacOS
 	cp -a *.vert *.frag $@/Contents/MacOS
-	cp -af "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
-	cp -af "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
+	cp -afLH "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
+	cp -afLH "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
 endif
 
 clean:

@@ -22,7 +22,7 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
 
     int size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size);
-    resize_texture(size);
+    resize_texture(size >> 4);
 }
 
 void Depthmap::resize_texture(int size)
