@@ -642,9 +642,9 @@ std::vector<Triangle> wf_triangles_from_file(const char *path)
 
     for (size_t i = 0; i + 2 < count; i += 3) {
         Triangle triangle;
-        triangle.vertices[0] = parse.vertices[i];
-        triangle.vertices[1] = parse.vertices[i+1];
-        triangle.vertices[2] = parse.vertices[i+2];
+        triangle.vertices[0] = glm::vec3(parse.vertices[i]);
+        triangle.vertices[1] = glm::vec3(parse.vertices[i+1]);
+        triangle.vertices[2] = glm::vec3(parse.vertices[i+2]);
         ret.push_back(triangle);
     }
     return ret;

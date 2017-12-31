@@ -59,6 +59,7 @@ struct gl3_material {
     void init(const std::string &path);
     int activate(int index) const;
     GLuint texture = UINT_MAX;
+    static gl3_material solid_color(glm::vec3 rgb);
 };
 
 struct VertexArrayObject {
@@ -103,7 +104,7 @@ struct Drawlist {
     glm::mat4 projection;
     glm::mat4 shadow_view_projection;
 
-    GLuint depth_map;
+    GLuint depth_map = UINT_MAX;
 
     struct Item {
         const gl3_material *material;

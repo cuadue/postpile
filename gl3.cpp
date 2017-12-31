@@ -233,7 +233,16 @@ void gl3_material::init(const std::string &texture_file) {
         texture = load_texture_2d(buf, SIZ, SIZ);
         #undef SIZ
     }
+}
 
+gl3_material gl3_material::solid_color(glm::vec3 rgb)
+{
+    uint8_t data[4];
+    data[0] = rgb.r * 255;
+    data[1] = rgb.g * 255;
+    data[2] = rgb.b * 255;
+    data[3] = 255;
+    return gl3_material(load_texture_2d(data, 1, 1));
 }
 
 void _check_drawlist(const Drawlist &dl, const char *f, int l)

@@ -48,8 +48,11 @@ void RenderPost::draw(const Drawlist &drawlist)
     light_vec.set(drawlist.lights.direction);
     light_color.set(drawlist.lights.color);
 
-    shadow_map.set(
-        gl3_material(drawlist.depth_map).activate(SHADOW_MAP_TEXTURE_INDEX));
+    if (drawlist.depth_map != UINT_MAX) {
+        shadow_map.set(
+            gl3_material(drawlist.depth_map).activate(
+                SHADOW_MAP_TEXTURE_INDEX));
+    }
     diffuse_map.set(DIFFUSE_MAP_TEXTURE_INDEX);
 
     std::map<const gl3_material*, std::vector<const Drawlist::Item*>> sorted;

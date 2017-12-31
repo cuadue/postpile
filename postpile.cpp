@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/transform.hpp>
 
 extern "C" {
 #include <fcntl.h>
@@ -105,6 +106,7 @@ fir_filter<vec3> center_filter(view_filter_coeffs, vec3(0, 0, 0));
 fir_filter<float> eye_angle_filter(view_filter_coeffs, M_PI/2.0);
 fir_filter<float> filtered_elevation(view_filter_coeffs, 0);
 
+double cliff(double distance);
 char float_index(const string &coll, float x);
 Time game_time(view_filter_coeffs);
 
@@ -186,7 +188,7 @@ map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
 float hex_elevation(const tile_generator &tile_gen, HexCoord<int> coord)
 {
     Point<double> center = hex_to_pixel(coord);
-    return 5 * tile_value(&tile_gen, center.x, center.y);
+    return -2.5 + 5 * tile_value(&tile_gen, center.x, center.y);
 }
 
 char hex_tile(const tile_generator &tile_gen, const string &coll, HexCoord<int> coord)
@@ -196,7 +198,7 @@ char hex_tile(const tile_generator &tile_gen, const string &coll, HexCoord<int> 
     return float_index(coll, elevation);
 }
 
-glm::mat4 advance_view_matrix(const tile_generator &tile_gen)
+glm::mat4 step_view_matrix(const tile_generator &tile_gen)
 {
     // yaw = 0 -> looking up the positive Y-axis
     // yaw is negative because... fudge factor
@@ -221,9 +223,14 @@ glm::mat4 advance_view_matrix(const tile_generator &tile_gen)
 }
 
 inline
-mat4 hex_model_matrix(int q, int r, float z)
+mat4 hex_model_matrix(const tile_generator &tile_gen, HexCoord<int> coord)
 {
-    HexCoord<int> coord = { .q = q, .r = r };
+    double distance = hex_distance(
+        HexCoord<double>::from(coord),
+        view.filtered_center);
+    float elevation = hex_elevation(tile_gen, coord);
+    float z = elevation - CLIFF_HEIGHT * cliff(distance);
+
     Point<double> center = hex_to_pixel(coord);
     return glm::translate(mat4(1), vec3(center.x, center.y, z));
 }
@@ -234,15 +241,18 @@ char float_index(const string &coll, float x)
     return coll.at(CLAMP(x * size, 0, size-1));
 }
 
-static inline
-HexCoord<int> hex_under_mouse_inner(glm::mat4 inv_mvp, glm::vec2 mouse, float elevation)
+static
+HexCoord<int> hex_under_mouse_inner(glm::mat4 inv_view_proj, glm::vec2 mouse, float z_plane)
 {
-    (void)elevation;
+    (void)z_plane;
     // Define two points in screen space
     glm::vec4 screen_a(mouse.x, mouse.y, -1, 1);
     glm::vec4 screen_b(mouse.x, mouse.y, 1, 1);
 
     // Transform them into object space
+    glm::mat4 inv_model = glm::translate(glm::mat4(1), {0, 0, -z_plane});
+    glm::mat4 inv_mvp = inv_model * inv_view_proj;
+
     glm::vec4 a(inv_mvp * screen_a);
     a /= a.w;
     glm::vec4 b(inv_mvp * screen_b);
@@ -289,17 +299,18 @@ vector<HexCoord<int>> selectable_hexes()
 
 
 static inline
-HexCoord<int> hex_under_mouse(glm::mat4 mvp, glm::vec2 mouse, const tile_generator &tile_gen)
+HexCoord<int> hex_under_mouse(glm::mat4 view_proj, glm::vec2 mouse, const tile_generator &tile_gen)
 {
-    glm::mat4 inv_mvp = glm::inverse(mvp);
-    (void)inv_mvp ;
-    (void)mouse;
-    (void)tile_gen;
+    glm::mat4 inv_view_proj = glm::inverse(view_proj);
 
     for (const HexCoord<int>& coord : selectable_hexes()) {
-        (void)coord;
+        float z = hex_elevation(tile_gen, coord);
+        HexCoord<int> tested = hex_under_mouse_inner(inv_view_proj, mouse, z);
+        if (tested.q == coord.q && tested.r == coord.r) {
+            return tested;
+        }
     }
-    return HexCoord<int>();
+    return {INT_MAX, INT_MAX};
 }
 
 void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
@@ -317,20 +328,18 @@ void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
         return;
     }
 
-    Point<double> center = hex_to_pixel(mouse_hex);
-    float elevation = tile_value(&tile_gen, center.x, center.y);
-
     Drawlist drawlist;
     drawlist.mesh = &meshes.cursor_mesh;
     drawlist.view = view_matrix;
     drawlist.projection = proj_matrix;
     Drawlist::Item item;
-    item.model_matrix =
-        hex_model_matrix(mouse_hex.q, mouse_hex.r, elevation-0.4);
+    item.model_matrix = glm::translate(
+        hex_model_matrix(tile_gen, mouse_hex), {0, 0, 0.1});
     item.material = &cursor_mtl;
+    item.group = "cursor";
 
     drawlist.items.push_back(item);
-    // TODO draw cursor
+    render_post.draw(drawlist);
 }
 
 float astro_bias()
@@ -390,14 +399,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
         Drawlist::Item side;
-        double distance = hex_distance(
-            HexCoord<double>::from(coord),
-            view.filtered_center);
 
-        float elevation = hex_elevation(tile_gen, coord);
-
-        mat4 mm = hex_model_matrix(coord.q, coord.r,
-            elevation - 0.5 - CLIFF_HEIGHT * cliff(distance));
+        mat4 mm = hex_model_matrix(tile_gen, coord);
 
         char top_tile = hex_tile(tile_gen, top_tileset, coord);
         char side_tile = hex_tile(tile_gen, side_tileset, coord);
@@ -406,6 +409,10 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         top.group = "hex_top";
         side.model_matrix = mm;
         side.group = "side";
+
+        double distance = hex_distance(
+            HexCoord<double>::from(coord),
+            view.filtered_center);
         top.visibility = 1 - cliff(distance);
         side.visibility = 1 - cliff(distance);
 
@@ -419,7 +426,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     }
 
     // TODO get rid of this offset
-    depthmap.render(drawlist, hex_model_matrix(-view.center.q, -view.center.r, 0));
+    depthmap.render(drawlist,
+        hex_model_matrix(tile_gen, view.center) * glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int w = 0, h = 0;
@@ -517,7 +525,7 @@ void tick(const tile_generator &tile_gen)
     view.pitch.step();
     view.distance.step();
     game_time.step();
-    view_matrix = advance_view_matrix(tile_gen);
+    view_matrix = step_view_matrix(tile_gen);
 }
 
 int main()
@@ -563,13 +571,13 @@ int main()
     check_gl_error();
 
     Meshes meshes;
-    meshes.post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
     meshes.post_mesh.init(wf_mesh_from_file("post.obj"));
     post_triangles = wf_triangles_from_file("post.obj");
 
     assert(meshes.post_mesh.vao.location);
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
+    cursor_mtl = gl3_material::solid_color({1, 0, 0});
 
     meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
     meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
