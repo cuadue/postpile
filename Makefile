@@ -38,13 +38,18 @@ postpile: $(OBJS) tex
 
 ifeq ($(shell uname), Darwin)
 Postpile.app: postpile tex post.obj
-	mkdir -p $@/Contents/MacOS
+	mkdir -p $@/Contents/MacOS/Resources
 	cp -a postpile $@/Contents/MacOS/_postpile
-	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
+	cp -a mac/bootstrap.sh $@/Contents/MacOS/postpile
+	cp -a mac/Info.plist $@/Contents
+	cp -a mac/PkgInfo $@/Contents
+	cp -a mac/*.icns $@/Contents/MacOS
 	cp -a *.obj tex $@/Contents/MacOS
 	cp -a *.vert *.frag $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
+	codesign -i "A Pile of Posts" -f -v --deep -s "Mac Developer: wwaugh@gmail.com (Q9A8EM6CP3)" Postpile.app/Contents/MacOS/{_postpile,postpile,libglfw.3.dylib,libGLEW.2.0.0.dylib}
+	codesign -v Postpile.app
 endif
 
 clean:
