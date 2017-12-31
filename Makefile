@@ -48,7 +48,12 @@ Postpile.app: postpile tex post.obj
 	cp -a *.vert *.frag $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
-	codesign -i "A Pile of Posts" -f -v --deep -s "Mac Developer: wwaugh@gmail.com (Q9A8EM6CP3)" Postpile.app/Contents/MacOS/{_postpile,postpile,libglfw.3.dylib,libGLEW.2.0.0.dylib}
+
+.PHONY: sign
+sign: Postpile.app
+	codesign -i "A Pile of Posts" -v -f --deep \
+		-s "Mac Developer: wwaugh@gmail.com (Q9A8EM6CP3)" \
+		Postpile.app/Contents/MacOS/{_postpile,postpile,*.dylib}
 	codesign -v Postpile.app
 endif
 
