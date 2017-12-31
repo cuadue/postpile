@@ -24,5 +24,10 @@ struct wf_mesh {
     bool has_normals() const;
 };
 
+struct Triangle {
+    glm::vec3 vertices[3];
+};
+
 struct wf_mesh wf_mesh_from_file(const char *path);
+std::vector<Triangle> wf_triangles_from_file(const char *path);
 void dump_mesh(const wf_mesh &);

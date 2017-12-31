@@ -58,6 +58,7 @@ struct Meshes {
     gl3_mesh cursor_mesh;
     gl3_mesh lmdebug_mesh;
 };
+std::vector<Triangle> post_triangles;
 RenderPost render_post;
 
 // scipy.signal.firwin(40, 0.01)
@@ -535,6 +536,7 @@ int main()
 
     Meshes meshes;
     meshes.post_mesh = gl3_mesh(wf_mesh_from_file("post.obj"));
+    post_triangles = wf_triangles_from_file("post.obj");
     assert(meshes.post_mesh.vao.location);
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);

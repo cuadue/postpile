@@ -18,7 +18,7 @@ LDFLAGS += -lm
 OBJS = postpile.o wavefront.o wavefront_mtl.o hex.o
 OBJS += tiles.o osn.o time.o render_post.o
 OBJS += gl3.o gl3_aux.o gl_aux.o lmdebug.o depthmap.o
-OBJS += stb_image.o
+OBJS += stb_image.o intersect.o
 
 tex:
 	mkdir -p $@
@@ -42,9 +42,9 @@ Postpile.app: postpile tex post.obj
 	cp -a postpile $@/Contents/MacOS/_postpile
 	cp -a osx_bootstrap.sh $@/Contents/MacOS/postpile
 	cp -a *.obj tex $@/Contents/MacOS
-	cp *.vert *.frag $@/Contents/MacOS
-	cp "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
-	cp "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
+	cp -a *.vert *.frag $@/Contents/MacOS
+	cp -af "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
+	cp -af "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
 endif
 
 clean:

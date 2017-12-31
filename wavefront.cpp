@@ -627,6 +627,29 @@ struct wf_mesh wf_mesh_from_file(const char *path)
 
     return to_mesh(parse_objfile(fp));
 }
+
+std::vector<Triangle> wf_triangles_from_file(const char *path)
+{
+    FILE* fp = fopen(path, "r");
+    if (!fp) {
+        perror(path);
+        return {};
+    }
+
+    std::vector<Triangle> ret;
+    Parse parse = parse_objfile(fp);
+    size_t count = parse.vertices.size();
+
+    for (size_t i = 0; i + 2 < count; i += 3) {
+        Triangle triangle;
+        triangle.vertices[0] = parse.vertices[i];
+        triangle.vertices[1] = parse.vertices[i+1];
+        triangle.vertices[2] = parse.vertices[i+2];
+        ret.push_back(triangle);
+    }
+    return ret;
+}
+
 bool wf_mesh::has_texture_coords() const
 {
     return texture2.size() / 2 >= vertex4.size() / 4;
