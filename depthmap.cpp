@@ -57,18 +57,17 @@ void Depthmap::resize_texture(int size)
     check_gl_error();
     check_gl_framebuffer(framebuffer);
     check_gl_error();
+    fprintf(stderr, "Shadow map texture size: %d\n", texture_size);
 }
 
 void Depthmap::shrink_texture()
 {
     resize_texture(texture_size / 2);
-    fprintf(stderr, "Shadow map texture size: %d\n", texture_size);
 }
 
 void Depthmap::grow_texture()
 {
     resize_texture(texture_size * 2);
-    fprintf(stderr, "Shadow map texture size: %d\n", texture_size);
 }
 
 void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
@@ -97,7 +96,8 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
 
     for (const Drawlist::Item &item : drawlist.items) {
         MVP.set(view_projection * item.model_matrix);
-        drawlist.mesh->groups.at(item.group).draw();
+        // This call is very expensive on Intel(R) Iris(TM) Graphics 6100
+        drawlist.mesh->draw_group(item.group);
     }
 
     vertex.disable(drawlist.mesh->vertex_buffer);

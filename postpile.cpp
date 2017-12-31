@@ -54,6 +54,7 @@ map<char, gl3_material> side_materials;
 gl3_material cursor_mtl;
 LmDebug lmdebug;
 int debug_show_lightmap = 0;
+int enable_shadows = 1;
 Depthmap depthmap;
 
 struct Meshes {
@@ -434,10 +435,13 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         draw_tile_count++;
     }
 
-    // TODO get rid of this offset
-    depthmap.render(drawlist,
-        hex_model_matrix(tile_gen, view.center) *
-        glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
+    if (enable_shadows) {
+        // TODO get rid of this offset
+        depthmap.render(drawlist,
+            hex_model_matrix(tile_gen, view.center) *
+            glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
+        drawlist.depth_map = depthmap.texture_target;
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int w = 0, h = 0;
@@ -447,7 +451,6 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     drawlist.shadow_view_projection = depthmap.view_projection;
-    drawlist.depth_map = depthmap.texture_target;
 
     draw_mouse_cursor(tile_gen, meshes);
     render_post.draw(drawlist);
@@ -512,6 +515,7 @@ void key_callback(GLFWwindow *, int key, int , int action, int )
             case GLFW_KEY_F1: debug_show_lightmap ^= 1; break;
             case GLFW_KEY_F2: depthmap.shrink_texture(); break;
             case GLFW_KEY_F3: depthmap.grow_texture(); break;
+            case GLFW_KEY_F4: enable_shadows ^= 1; break;
         }
     }
 }

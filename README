@@ -17,17 +17,33 @@ A doodle inspired by RPGs and hexagonal games. The controls are:
     F1 Toggles a debug lightmap
     F2 Increase the lightmap resolution
     F3 Decrease the lightmap resolution
+    F4 Toggles shadows. This can improve performance
 
 Building requires a working POSIX build system and:
 
     glm
-    SDL2
-    SDL2_image
     glew
     glfw3
 
 Then:
 
-    make && ./postpile
+    $ make && ./postpile
+
+On mac you need the XCode and the command line utilities. Apple doesn't make
+this too easy because they want you to use their IDE with the associated
+platform lockin. Start by installing xcode from the app store, then to get
+the command line utilities, (it changes over time, but for now), visit:
+
+    https://developer.apple.com/download/more/
+
+and search for "command line". Install the appropriate version.
+
+The dependencies can be installed with homebrew (http://brew.sh) like:
+
+    $ brew install glm glew glfw
+
+On Debian (probably similar on Ubuntu) GNU/Linux, use:
+
+    $ sudo apt install build-essential libglm-dev libglew-dev libglfw3-dev
 
 This program is free code under the GPLv3 license. (C) 2016 Wes Waugh.
