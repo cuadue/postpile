@@ -28,6 +28,11 @@ struct CubeCoord {
         };
         return ret;
     }
+
+    bool equals(const CubeCoord<T> &other) const
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
 };
 
 template <typename T>
@@ -42,6 +47,11 @@ struct HexCoord {
             .r = static_cast<T>(other.r)
         };
         return ret;
+    }
+
+    bool equals(const HexCoord<T> &other) const
+    {
+        return q == other.q && r == other.r;
     }
 };
 

@@ -295,7 +295,7 @@ float min_distance_to_hex(
 // TODO measure the cost of this computation. It's a great candidate for
 // threading.
 static inline
-HexCoord<int> hex_under_mouse(glm::vec2 mouse, const tile_generator &tile_gen)
+HexCoord<int> hex_under_mouse_inner(glm::vec2 mouse, const tile_generator &tile_gen)
 {
     // All mouse calculations are in model-view space, without projection.
     glm::mat4 inv_projection = glm::inverse(proj_matrix);
@@ -322,35 +322,13 @@ HexCoord<int> hex_under_mouse(glm::vec2 mouse, const tile_generator &tile_gen)
     return ret;
 }
 
-void draw_mouse_cursor(const tile_generator &tile_gen, const Meshes &meshes)
+HexCoord<int> hex_under_mouse(const tile_generator &tile_gen)
 {
-    check_gl_error();
     int window_h = 0, window_w = 0;
     glfwGetWindowSize(window, &window_w, &window_h);
     glm::vec2 offset_mouse(2 * mouse.x / (float)window_w - 1,
                            2 * (window_h-mouse.y) / (float)window_h - 1);
-    struct HexCoord<int> mouse_hex =
-        hex_under_mouse(offset_mouse, tile_gen);
-    int distance = hex_distance(mouse_hex, view.center);
-    if (distance > MAX_VIEW_DISTANCE) {
-        return;
-    }
-
-    Drawlist drawlist;
-    drawlist.mesh = &meshes.cursor_mesh;
-    drawlist.view = view_matrix;
-    drawlist.projection = proj_matrix;
-    Drawlist::Item item;
-    Light light = {.direction={0, 0, 1}, .color={1, 1, 1}};
-    drawlist.lights.put(light);
-    item.model_matrix = glm::translate(
-        hex_model_matrix(tile_gen, mouse_hex), {0, 0, 0.1});
-    item.material = &cursor_mtl;
-    item.group = "cursor";
-    item.visibility = 1;
-
-    drawlist.items.push_back(item);
-    render_post.draw(drawlist);
+    return hex_under_mouse_inner(offset_mouse, tile_gen);
 }
 
 float astro_bias()
@@ -406,6 +384,7 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
     // For benchmarking
     draw_tile_count = 0;
+    HexCoord<int> cursor = hex_under_mouse(tile_gen);
 
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
@@ -430,6 +409,11 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
 
+        if (coord.equals(cursor)) {
+            top.material = &cursor_mtl;
+            side.material = &cursor_mtl;
+        }
+
         drawlist.items.push_back(top);
         drawlist.items.push_back(side);
 
@@ -453,7 +437,6 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
     drawlist.shadow_view_projection = depthmap.view_projection;
 
-    draw_mouse_cursor(tile_gen, meshes);
     render_post.draw(drawlist);
 }
 
@@ -506,14 +489,13 @@ void cursor_pos_callback(GLFWwindow *, double xpos, double ypos)
     mouse.y = ypos;
 }
 
-void scroll_callback(GLFWwindow *, double xoffset, double yoffset)
+void scroll_callback(GLFWwindow *, double, double yoffset)
 {
     if (std::abs(yoffset) > 1e-6) {
         double factor = 1 + 0.1 * std::abs(yoffset) * ZOOM_FACTOR;
         if (yoffset < 0) {
             factor = 1.0 / factor;
         }
-        fprintf(stderr, "%g -> %g\n", yoffset, factor);
         view.distance.multiply(factor);
     }
 }
