@@ -15,15 +15,31 @@ in vec4 shadow_coord;
 
 out vec3 color;
 
-const float ambient = 0.15;
+const float ambient_min = 0.2;
+const float ambient_max = 0.4;
+const float ambient_contrast = 10;
+const float shadow_map_bias = 0.002;
 
 float shadow_intensity()
 {
     vec4 biased = 0.5 * (1 + shadow_coord);
-    return 0.2 + 0.8 * texture(shadow_map, vec3(biased.xy, biased.z - 0.001));
+    return 2 * texture(shadow_map,
+        vec3(biased.xy, biased.z - shadow_map_bias));
 }
 
-const float k_sat = 0.3;
+float ambient()
+{
+    // as the angle of incidence of the shadowing light gets
+    // further from the zenith, increase the ambient lighting so
+    // that during the darkest hours, you can still see.
+    if (num_lights == 0) {
+        return ambient_max;
+    }
+    float x = 1.1 - dot(normalize(light_vec[0]), vec3(0, 0, 1));
+    float clamped = clamp(x, 0, 1);
+    float spread = ambient_max - ambient_min;
+    return ambient_min + spread * clamped;
+}
 
 void main()
 {
@@ -32,14 +48,15 @@ void main()
 
     vec3 light = vec3(0, 0, 0);
     for (int i = 0; i < min(16, num_lights); i++) {
-        light += light_color[i] * dot(normal, light_vec[i]);
+        float n_dot_l = dot(normal, light_vec[i]);
+        light += light_color[i] * n_dot_l;
     }
 
     float shadow = shadow_intensity();
-    light *= shadow;
+    light = mix(clamp(shadow * light, 0, 1), vec3(1, 1, 1),  ambient());
 
     color = texture(diffuse_map, uv).rgb *
             clamp(fadeout, 0, 1) *
-            clamp(atan(k_sat * light)/k_sat, ambient, 1) *
+            light *
             clamp(visibility, 0, 1);
 }

@@ -373,11 +373,11 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     auto moon = astro_light(game_time.fractional_night(), moon_color, -1);
 
     // Index 0 is the shadow
-    if (sun.direction.z > 0.1) {
+    if (sun.direction.z > 0) {
         drawlist.lights.put(sun);
         drawlist.lights.put(moon);
     }
-    else if (moon.direction.z > 0.1) {
+    else {
         drawlist.lights.put(moon);
         drawlist.lights.put(sun);
     }
@@ -510,6 +510,8 @@ void key_callback(GLFWwindow *, int key, int , int action, int )
             case GLFW_KEY_S: move(3); break;
             case GLFW_KEY_A: move(4); break;
             case GLFW_KEY_Q: move(5); break;
+
+            case GLFW_KEY_SPACE: game_time.advance_hour(); break;
 
             case GLFW_KEY_R: view.yaw++; break;
 

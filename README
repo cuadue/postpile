@@ -9,10 +9,11 @@ A doodle inspired by RPGs and hexagonal games. The controls are:
 
                   backward
 
-    F zooms in
-    V zooms out
-    T pitches up
-    G pitches down
+    F       zooms in
+    V       zooms out
+    T       pitches up
+    G       pitches down
+    Space   passes time
 
     F1 Toggles a debug lightmap
     F2 Increase the lightmap resolution
