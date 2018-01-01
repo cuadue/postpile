@@ -40,6 +40,7 @@ extern "C" {
 #define VIEW_MIN_PITCH (M_PI/5.0)
 #define VIEW_MAX_DISTANCE 50
 #define VIEW_MIN_DISTANCE 5
+#define ZOOM_FACTOR 1.05
 
 using namespace std;
 using namespace glm;
@@ -483,8 +484,14 @@ void move(int n)
     game_time.advance_hour();
 }
 
-void zoom_in(float dir=1) { view.distance.add(0.5 * dir); }
-void zoom_out() { zoom_in(-1); }
+void zoom_in() {
+    view.distance.multiply(1 / ZOOM_FACTOR);
+}
+
+void zoom_out() {
+    view.distance.multiply(ZOOM_FACTOR);
+
+}
 void pitch_up(float dir=1) { view.pitch.add(0.02 * dir); }
 void pitch_down() { pitch_up(-1); }
 
@@ -497,6 +504,18 @@ void cursor_pos_callback(GLFWwindow *, double xpos, double ypos)
 {
     mouse.x = xpos;
     mouse.y = ypos;
+}
+
+void scroll_callback(GLFWwindow *, double xoffset, double yoffset)
+{
+    if (std::abs(yoffset) > 1e-6) {
+        double factor = 1 + 0.1 * std::abs(yoffset) * ZOOM_FACTOR;
+        if (yoffset < 0) {
+            factor = 1.0 / factor;
+        }
+        fprintf(stderr, "%g -> %g\n", yoffset, factor);
+        view.distance.multiply(factor);
+    }
 }
 
 void key_callback(GLFWwindow *, int key, int , int action, int )
@@ -556,6 +575,7 @@ int main()
 
     glfwMakeContextCurrent(window);
     glfwSetKeyCallback(window, key_callback);
+    glfwSetScrollCallback(window, scroll_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
     glfwSetFramebufferSizeCallback(window, window_size_callback);
 

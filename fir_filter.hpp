@@ -57,6 +57,15 @@ public:
 
     void add(const T &x) {
         final_value += x;
+        clamp();
+    }
+
+    void multiply(const T &x) {
+        final_value *= x;
+        clamp();
+    }
+
+    void clamp() {
         if (std::isfinite(big))
             final_value = std::min(big, final_value);
         if (std::isfinite(lil))
