@@ -226,8 +226,14 @@ vector<glm::mat4> pines_on_tile(const tile_generator &tile_gen, HexCoord<int> co
         glm::mat4 scale = glm::scale(glm::vec3(s, s, s));
         glm::mat4 xlate = glm::translate(glm::vec3(
             dist * cos(angle), dist * sin(angle), 0));
+        float dx = 0.1 * mod(e, 434981, 943);
+        float dy = 0.1 * mod(e, 474981, 1543);
+        float dz = 1 + 0.1 * mod(e, 348987, 9847);
+        float da = 2 * M_PI * mod(e, 9091381, 883);
 
-        ret.push_back(xlate * scale);
+        glm::mat4 rot = glm::rotate(da, vec3(dx, dy, dz));
+
+        ret.push_back(xlate * scale * rot);
     }
     return ret;
 }
