@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #define GLM_FORCE_RADIANS
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -60,6 +61,7 @@ Depthmap depthmap;
 
 struct Meshes {
     gl3_mesh post_mesh;
+    gl3_mesh pine_mesh;
     gl3_mesh cursor_mesh;
     gl3_mesh lmdebug_mesh;
 };
@@ -364,23 +366,27 @@ double cliff(double distance)
 
 void draw(const tile_generator &tile_gen, const Meshes &meshes)
 {
-    Drawlist drawlist;
-    drawlist.mesh = &meshes.post_mesh;
-    drawlist.view = view_matrix;
-    drawlist.projection = proj_matrix;
+    Drawlist hex_drawlist;
+    hex_drawlist.mesh = &meshes.post_mesh;
+    hex_drawlist.view = view_matrix;
+    hex_drawlist.projection = proj_matrix;
 
     auto sun = astro_light(game_time.fractional_day(), sun_color, 1);
     auto moon = astro_light(game_time.fractional_night(), moon_color, -1);
 
     // Index 0 is the shadow
     if (sun.direction.z > 0) {
-        drawlist.lights.put(sun);
-        drawlist.lights.put(moon);
+        hex_drawlist.lights.put(sun);
+        hex_drawlist.lights.put(moon);
     }
     else {
-        drawlist.lights.put(moon);
-        drawlist.lights.put(sun);
+        hex_drawlist.lights.put(moon);
+        hex_drawlist.lights.put(sun);
     }
+
+    Drawlist pine_drawlist = hex_drawlist;
+    pine_drawlist.mesh = &meshes.pine_mesh;
+    gl3_material green = gl3_material::solid_color({0, 1, 0});
 
     // For benchmarking
     draw_tile_count = 0;
@@ -389,6 +395,7 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
         Drawlist::Item side;
+        Drawlist::Item pine;
 
         mat4 mm = hex_model_matrix(tile_gen, coord);
 
@@ -400,11 +407,15 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         side.model_matrix = mm;
         side.group = "side";
 
+        pine.model_matrix = mm * glm::scale(vec3(0.6, 0.6, 0.6));
+        pine.group = "all";
+
         double distance = hex_distance(
             HexCoord<double>::from(coord),
             view.filtered_center);
         top.visibility = 1 - cliff(distance);
-        side.visibility = 1 - cliff(distance);
+        side.visibility = top.visibility;
+        pine.visibility = top.visibility;
 
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
@@ -414,18 +425,29 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
             side.material = &cursor_mtl;
         }
 
-        drawlist.items.push_back(top);
-        drawlist.items.push_back(side);
+        hex_drawlist.items.push_back(top);
+        hex_drawlist.items.push_back(side);
+        pine.material = &green;
+        pine_drawlist.items.push_back(pine);
 
         draw_tile_count++;
     }
 
     if (enable_shadows) {
+        depthmap.begin();
         // TODO get rid of this offset
-        depthmap.render(drawlist,
+        depthmap.render(hex_drawlist,
             hex_model_matrix(tile_gen, view.center) *
             glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
-        drawlist.depth_map = depthmap.texture_target;
+        depthmap.render(pine_drawlist,
+            hex_model_matrix(tile_gen, view.center) *
+            glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
+        hex_drawlist.depth_map = depthmap.texture_target;
+        pine_drawlist.depth_map = depthmap.texture_target;
+
+        hex_drawlist.shadow_view_projection = depthmap.view_projection;
+        // This makes global self shadows on the trees. Doesn't look great...
+        pine_drawlist.shadow_view_projection = depthmap.view_projection;
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -435,9 +457,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    drawlist.shadow_view_projection = depthmap.view_projection;
-
-    render_post.draw(drawlist);
+    render_post.draw(hex_drawlist);
+    render_post.draw(pine_drawlist);
 }
 
 void lmdebug_draw(const gl3_mesh &mesh)
@@ -590,7 +611,10 @@ int main()
 
     Meshes meshes;
     meshes.post_mesh.init(wf_mesh_from_file("post.obj"));
+    // These are used for mouse cursor selection
     post_triangles = wf_triangles_from_file("post.obj");
+
+    meshes.pine_mesh.init(wf_mesh_from_file("pine.obj"));
 
     assert(meshes.post_mesh.vao.location);
     top_materials = load_tex_mtls(top_texfiles);

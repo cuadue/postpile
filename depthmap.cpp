@@ -70,12 +70,16 @@ void Depthmap::grow_texture()
     resize_texture(texture_size * 2);
 }
 
-void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
+void Depthmap::begin()
 {
-    CHECK_DRAWLIST(drawlist);
     glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glViewport(0, 0, texture_size, texture_size);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
+{
+    CHECK_DRAWLIST(drawlist);
     glUseProgram(program);
     check_gl_error();
     glDrawBuffer(GL_NONE);

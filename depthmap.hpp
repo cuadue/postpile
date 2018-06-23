@@ -4,6 +4,7 @@
 
 struct Depthmap {
     void init(const char *vert_file, const char *frag_file);
+    void begin();
     void render(const Drawlist &drawlist, glm::mat4 model);
     void resize_texture(int size);
     void shrink_texture();

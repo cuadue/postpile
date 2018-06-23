@@ -5,6 +5,7 @@ extern "C" {
 #include "gl_aux.h"
 #include "stb_image.h"
 }
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/io.hpp>
 
