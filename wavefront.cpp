@@ -310,16 +310,16 @@ vector<T> deref_triangles(
     vector<T> ret;
     for (const auto &f : faces) {
         for (int i = 0; i < 3; i++) {
-            unsigned deref_index;
+            int deref_index;
             switch (index_type) {
             case Face::VERTEX:  deref_index = f.vertex_indices[i];  break;
             case Face::TEXTURE: deref_index = f.texture_indices[i]; break;
             case Face::NORMAL:  deref_index = f.normal_indices[i];  break;
             }
 
-            if (deref_index >= indices.size()) {
-                fprintf(stderr, "Invalid face index %d %lu\n", deref_index,
-                indices.size());
+            if (deref_index < 0 || deref_index - indices.size() <= 0) {
+                fprintf(stderr, "Invalid face index %d %lu\n",
+                        deref_index, indices.size());
                 return {};
             }
 

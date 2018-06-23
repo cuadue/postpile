@@ -386,7 +386,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
     Drawlist pine_drawlist = hex_drawlist;
     pine_drawlist.mesh = &meshes.pine_mesh;
-    gl3_material green = gl3_material::solid_color({0, 1, 0});
+    gl3_material green = gl3_material::solid_color({.1, .7, .2});
+    gl3_material brown = gl3_material::solid_color({.6, .3, .2});
 
     // For benchmarking
     draw_tile_count = 0;
@@ -395,7 +396,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
         Drawlist::Item side;
-        Drawlist::Item pine;
+        Drawlist::Item canopy;
+        Drawlist::Item trunk;
 
         mat4 mm = hex_model_matrix(tile_gen, coord);
 
@@ -407,15 +409,18 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         side.model_matrix = mm;
         side.group = "side";
 
-        pine.model_matrix = mm * glm::scale(vec3(0.6, 0.6, 0.6));
-        pine.group = "all";
+        canopy.model_matrix = mm * glm::scale(vec3(0.4, 0.4, 0.4));
+        canopy.group = "canopy";
+        trunk = canopy;
+        trunk.group = "trunk";
 
         double distance = hex_distance(
             HexCoord<double>::from(coord),
             view.filtered_center);
         top.visibility = 1 - cliff(distance);
         side.visibility = top.visibility;
-        pine.visibility = top.visibility;
+        canopy.visibility = top.visibility;
+        trunk.visibility = top.visibility;
 
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
@@ -427,8 +432,10 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
         hex_drawlist.items.push_back(top);
         hex_drawlist.items.push_back(side);
-        pine.material = &green;
-        pine_drawlist.items.push_back(pine);
+        canopy.material = &green;
+        trunk.material = &brown;
+        pine_drawlist.items.push_back(canopy);
+        pine_drawlist.items.push_back(trunk);
 
         draw_tile_count++;
     }
