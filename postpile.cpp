@@ -203,6 +203,35 @@ char hex_tile(const tile_generator &tile_gen, const string &coll, HexCoord<int> 
     return float_index(coll, elevation);
 }
 
+vector<glm::mat4> pines_on_tile(const tile_generator &tile_gen, HexCoord<int> coord)
+{
+    Point<double> center = hex_to_pixel(coord);
+    float elevation = tile_value(&tile_gen, center.x, center.y);
+    if (elevation < 0.3 || elevation > 0.7) {
+        return {};
+    }
+
+    auto mod = [](float f, int seed, int m) -> float {
+        return ((int)(f * seed) % m) / (float)m;
+    };
+
+    int count = 6 * mod(elevation, 734877, 6);
+
+    vector<glm::mat4> ret;
+    for (int i = 0; i < count; i++) {
+        float e = elevation * i;
+        float angle = 2 * M_PI * mod(e, 34989237, 99391);
+        float dist = 0.3 + 0.5 * mod(e, 8476397, 17821);
+        float s = 0.1 + 0.7 * mod(e, 34249, 948);
+        glm::mat4 scale = glm::scale(glm::vec3(s, s, s));
+        glm::mat4 xlate = glm::translate(glm::vec3(
+            dist * cos(angle), dist * sin(angle), 0));
+
+        ret.push_back(xlate * scale);
+    }
+    return ret;
+}
+
 glm::mat4 step_view_matrix(const tile_generator &tile_gen)
 {
     // yaw = 0 -> looking up the positive Y-axis
@@ -396,8 +425,6 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     for (const HexCoord<int>& coord : visible_hexes()) {
         Drawlist::Item top;
         Drawlist::Item side;
-        Drawlist::Item canopy;
-        Drawlist::Item trunk;
 
         mat4 mm = hex_model_matrix(tile_gen, coord);
 
@@ -409,18 +436,11 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         side.model_matrix = mm;
         side.group = "side";
 
-        canopy.model_matrix = mm * glm::scale(vec3(0.4, 0.4, 0.4));
-        canopy.group = "canopy";
-        trunk = canopy;
-        trunk.group = "trunk";
-
         double distance = hex_distance(
             HexCoord<double>::from(coord),
             view.filtered_center);
         top.visibility = 1 - cliff(distance);
         side.visibility = top.visibility;
-        canopy.visibility = top.visibility;
-        trunk.visibility = top.visibility;
 
         top.material = &top_materials.at(top_tile);
         side.material = &side_materials.at(side_tile);
@@ -432,10 +452,23 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
         hex_drawlist.items.push_back(top);
         hex_drawlist.items.push_back(side);
-        canopy.material = &green;
-        trunk.material = &brown;
-        pine_drawlist.items.push_back(canopy);
-        pine_drawlist.items.push_back(trunk);
+
+        for (const glm::mat4 mat : pines_on_tile(tile_gen, coord)) {
+            Drawlist::Item canopy;
+            Drawlist::Item trunk;
+            canopy.visibility = top.visibility;
+            trunk.visibility = top.visibility;
+            canopy.material = &green;
+
+            canopy.model_matrix = mm * mat;
+            trunk = canopy;
+            trunk.material = &brown;
+            trunk.group = "trunk";
+            canopy.group = "canopy";
+
+            pine_drawlist.items.push_back(canopy);
+            pine_drawlist.items.push_back(trunk);
+        }
 
         draw_tile_count++;
     }
