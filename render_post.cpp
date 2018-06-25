@@ -15,6 +15,7 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
     uv.init(program, "vertex_uv", 2);
 
     MVP.init(program, "MVP");
+    N.init(program, "N");
     shadow_MVP.init(program, "shadow_MVP");
     shadow_map.init(program, "shadow_map");
 
@@ -69,6 +70,9 @@ void RenderPost::draw(const Drawlist &drawlist)
         for (const auto &item : pair.second) {
             glm::mat4 mm = item->model_matrix;
             shadow_MVP.set(drawlist.shadow_view_projection * mm);
+            glm::mat3 normal_matrix =
+                glm::mat3(glm::transpose(glm::inverse(drawlist.view * mm)));
+            N.set(normal_matrix);
             MVP.set(view_projection * mm);
             visibility.set(item->visibility);
             drawlist.mesh->draw_group(item->group);

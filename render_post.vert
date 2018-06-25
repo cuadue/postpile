@@ -18,6 +18,6 @@ void main()
     gl_Position = MVP * vertex;
     elevation = vertex.z;
     uv = vertex_uv;
-    normal_frag = normal;
+    normal_frag = N * normal;
     shadow_coord = shadow_MVP * vertex;
 }
