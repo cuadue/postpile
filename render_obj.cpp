@@ -3,9 +3,9 @@
 #define DIFFUSE_MAP_TEXTURE_INDEX 1
 #define SHADOW_MAP_TEXTURE_INDEX 2
 
-RenderPost::RenderPost() {}
+RenderObj::RenderObj() {}
 
-void RenderPost::init(const char *vert_file, const char *frag_file)
+void RenderObj::init(const char *vert_file, const char *frag_file)
 {
     program = load_program(vert_file, frag_file);
     assert(program);
@@ -28,7 +28,7 @@ void RenderPost::init(const char *vert_file, const char *frag_file)
     check_gl_error();
 }
 
-void RenderPost::draw(const Drawlist &drawlist)
+void RenderObj::draw(const Drawlist &drawlist)
 {
     CHECK_DRAWLIST(drawlist);
     check_gl_error();

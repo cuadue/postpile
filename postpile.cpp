@@ -66,7 +66,7 @@ struct Meshes {
     gl3_mesh lmdebug_mesh;
 };
 std::vector<Triangle> post_triangles;
-RenderPost render_obj;
+RenderObj render_obj;
 
 // scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {

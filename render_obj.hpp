@@ -6,8 +6,8 @@ extern "C" {
 #include "gl_aux.h"
 }
 
-struct RenderPost {
-    RenderPost();
+struct RenderObj {
+    RenderObj();
     void init(const char *vert_file, const char *frag_file);
     void draw(const Drawlist &drawlist);
 
