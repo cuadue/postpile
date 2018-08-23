@@ -27,7 +27,7 @@ extern "C" {
 #include "fir_filter.hpp"
 #include "hex.hpp"
 #include "time.hpp"
-#include "render_post.hpp"
+#include "render_obj.hpp"
 #include "lmdebug.hpp"
 #include "depthmap.hpp"
 #include "intersect.hpp"
@@ -66,7 +66,7 @@ struct Meshes {
     gl3_mesh lmdebug_mesh;
 };
 std::vector<Triangle> post_triangles;
-RenderPost render_post;
+RenderPost render_obj;
 
 // scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {
@@ -501,8 +501,8 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    render_post.draw(hex_drawlist);
-    render_post.draw(pine_drawlist);
+    render_obj.draw(hex_drawlist);
+    render_obj.draw(pine_drawlist);
 }
 
 void lmdebug_draw(const gl3_mesh &mesh)
@@ -644,7 +644,7 @@ int main()
     check_gl_error();
     resize();
 
-    render_post.init("render_post.vert", "render_post.frag");
+    render_obj.init("render_obj.vert", "render_obj.frag");
     check_gl_error();
 
     lmdebug.init("lmdebug.vert", "lmdebug.frag");

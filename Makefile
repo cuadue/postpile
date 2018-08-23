@@ -16,7 +16,7 @@ LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
 LDFLAGS += -lm
 
 OBJS = postpile.o wavefront.o wavefront_mtl.o hex.o
-OBJS += tiles.o osn.o time.o render_post.o
+OBJS += tiles.o osn.o time.o render_obj.o
 OBJS += gl3.o gl3_aux.o gl_aux.o lmdebug.o depthmap.o
 OBJS += stb_image.o intersect.o
 

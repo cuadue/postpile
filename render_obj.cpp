@@ -1,4 +1,4 @@
-#include "render_post.hpp"
+#include "render_obj.hpp"
 
 #define DIFFUSE_MAP_TEXTURE_INDEX 1
 #define SHADOW_MAP_TEXTURE_INDEX 2
