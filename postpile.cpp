@@ -53,7 +53,7 @@ mat4 view_matrix;
 vec2 mouse;
 map<char, gl3_material> top_materials;
 map<char, gl3_material> side_materials;
-gl3_material cursor_mtl;
+gl3_material cursor_mtl, green, brown;
 LmDebug lmdebug;
 int debug_show_lightmap = 0;
 int enable_shadows = 1;
@@ -377,10 +377,10 @@ Light astro_light(float t, glm::vec3 base_color, int bias_sign)
 {
     float angle = 2.0 * M_PI * t;
     float x = sin(angle);
-    float y = cos(angle) + bias_sign * astro_bias();
-    glm::vec3 direction(x, 0.17, y);
+    float z = cos(angle) + bias_sign * astro_bias();
+    glm::vec3 direction(x, 0.17, z);
 
-    float brightness = (y - HORIZON) / HORIZON;
+    float brightness = (z - HORIZON) / HORIZON;
     glm::vec3 color = CLAMP(brightness, 0, 1) * base_color;
     return Light { .direction = direction, .color = color };
 }
@@ -421,8 +421,6 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
 
     Drawlist pine_drawlist = hex_drawlist;
     pine_drawlist.mesh = &meshes.pine_mesh;
-    gl3_material green = gl3_material::solid_color({.1, .7, .2});
-    gl3_material brown = gl3_material::solid_color({.6, .3, .2});
 
     // For benchmarking
     draw_tile_count = 0;
@@ -666,6 +664,8 @@ int main()
     top_materials = load_tex_mtls(top_texfiles);
     side_materials = load_tex_mtls(side_texfiles);
     cursor_mtl = gl3_material::solid_color({1, 0, 0});
+    green = gl3_material::solid_color({.1, .7, .2});
+    brown = gl3_material::solid_color({.6, .3, .2});
 
     meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
     meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
