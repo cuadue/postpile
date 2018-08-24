@@ -92,24 +92,22 @@ void gl3_group::draw() const
     check_gl_error();
 }
 
+void gl3_group::draw_instanced(int quantity) const
+{
+    check_gl_error();
+    assert(index_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
+    glDrawElementsInstanced(GL_TRIANGLES, count, GL_UNSIGNED_INT, NULL, quantity);
+    check_gl_error();
+}
+
+
 void VertexArrayObject::init()
 {
     glGenVertexArrays(1, &location);
     assert(location);
     glBindVertexArray(location);
     check_gl_error();
-}
-
-void ArrayBuffer::init(const std::vector<float> &data, bool _present)
-{
-    present = _present;
-    if (present) {
-        glGenBuffers(1, &buffer);
-        glBindBuffer(GL_ARRAY_BUFFER, buffer);
-        glBufferData(GL_ARRAY_BUFFER,
-                     sizeof(data[0]) * data.size(),
-                     &data[0], GL_STATIC_DRAW);
-    }
 }
 
 void gl3_mesh::init(const wf_mesh& wf)
@@ -142,7 +140,7 @@ void VertexAttribArray::init(GLuint program, const char *name, int _size)
     size = _size;
 }
 
-void VertexAttribArray::disable(const ArrayBuffer &ab) const
+void VertexAttribArray::disable(const ArrayBuffer<float> &ab) const
 {
     if (!ab.present) return;
     check_gl_error();
@@ -150,12 +148,50 @@ void VertexAttribArray::disable(const ArrayBuffer &ab) const
     check_gl_error();
 }
 
-void VertexAttribArray::activate(const ArrayBuffer &ab) const
+void VertexAttribArray::activate(const ArrayBuffer<float> &ab) const
 {
     if (!ab.present) return;
     glEnableVertexAttribArray(location);
     glBindBuffer(GL_ARRAY_BUFFER, ab.buffer);
     glVertexAttribPointer(location, size, GL_FLOAT, GL_FALSE, 0, NULL);
+    if (instanced) {
+        glVertexAttribDivisor(location, 1);
+    }
+
+    check_gl_error();
+}
+
+void VertexAttribArrayMat4::init(GLuint program, const char *name)
+{
+    location0 = get_attrib_location(program, name);
+}
+
+void VertexAttribArrayMat4::disable(const ArrayBuffer<glm::mat4> &ab) const
+{
+    if (!ab.present) return;
+    check_gl_error();
+    for (int col = 0; col < 4; col++) {
+        glDisableVertexAttribArray(location0 + col);
+    }
+
+    check_gl_error();
+}
+
+void VertexAttribArrayMat4::activate(const ArrayBuffer<glm::mat4> &ab) const
+{
+    if (!ab.present) return;
+    glBindBuffer(GL_ARRAY_BUFFER, ab.buffer);
+
+    for (int col = 0; col < 4; col++) {
+        GLuint location = location0 + col;
+        glEnableVertexAttribArray(location);
+        glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE,
+                              4 * sizeof(glm::vec4),
+                              (void*)(col * sizeof(glm::vec4)));
+        if (instanced) {
+            glVertexAttribDivisor(location, 1);
+        }
+    }
     check_gl_error();
 }
 
@@ -171,6 +207,15 @@ void gl3_mesh::draw_group(const string &name) const
         abort();
     }
     groups.at(name).draw();
+}
+
+void gl3_mesh::draw_group_instanced(const string &name, int n) const
+{
+    if (!groups.count(name)) {
+        fprintf(stderr, "No such group: %s\n", name.c_str());
+        abort();
+    }
+    groups.at(name).draw_instanced(n);
 }
 
 // Assumes data is 8 bit per pixel, RGBA

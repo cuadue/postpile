@@ -32,18 +32,55 @@ typedef Uniform<std::vector<glm::vec3>> UniformVec3Vec;
 typedef Uniform<int> UniformInt;
 typedef Uniform<float> UniformFloat;
 
+template <typename T>
 struct ArrayBuffer {
-    void init(const std::vector<float> &data, bool _present);
     bool present = false;
     GLuint buffer;
+
+    void init(const std::vector<T> &data, bool _present)
+    {
+        present = _present;
+        if (present) {
+            glGenBuffers(1, &buffer);
+            buffer_data_static(data);
+        }
+    }
+
+    void buffer_data_static(const std::vector<T> &data)
+    {
+        buffer_data(data, GL_STATIC_DRAW);
+    }
+
+    void buffer_data_dynamic(const std::vector<T> &data)
+    {
+        buffer_data(data, GL_DYNAMIC_DRAW);
+    }
+
+    void buffer_data(const std::vector<T> &data, GLenum usage)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, buffer);
+        glBufferData(GL_ARRAY_BUFFER,
+                     sizeof(data[0]) * data.size(),
+                     &data[0], usage);
+    }
 };
 
 struct VertexAttribArray {
     void init(GLuint program, const char *name, int size);
-    void activate(const ArrayBuffer& ab) const;
-    void disable(const ArrayBuffer& ab) const;
+    void activate(const ArrayBuffer<float>& ab) const;
+    void disable(const ArrayBuffer<float>& ab) const;
     GLuint location;
     int size;
+    bool instanced = false;
+};
+
+struct VertexAttribArrayMat4 {
+    void init(GLuint program, const char *name);
+    void activate(const ArrayBuffer<glm::mat4>& ab) const;
+    void disable(const ArrayBuffer<glm::mat4>& ab) const;
+    GLuint location0;
+    VertexAttribArray attrib_array;
+    bool instanced = false;
 };
 
 struct gl3_group {
@@ -51,6 +88,7 @@ struct gl3_group {
     size_t count;
     void init(const wf_group &wf);
     void draw() const;
+    void draw_instanced(int quantity) const;
 };
 
 struct gl3_material {
@@ -69,12 +107,13 @@ struct VertexArrayObject {
 
 struct gl3_mesh {
     VertexArrayObject vao;
-    ArrayBuffer vertex_buffer;
-    ArrayBuffer normal_buffer;
-    ArrayBuffer uv_buffer;
+    ArrayBuffer<float> vertex_buffer;
+    ArrayBuffer<float> normal_buffer;
+    ArrayBuffer<float> uv_buffer;
 
     std::map<std::string, gl3_group> groups;
     void draw_group(const std::string &group) const;
+    void draw_group_instanced(const std::string &group, int n) const;
 
     void init(const wf_mesh &wf);
     void activate() const;

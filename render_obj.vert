@@ -1,23 +1,31 @@
 #version 330 core
 
-uniform mat4 MVP;
-uniform mat3 N;
-uniform mat4 shadow_MVP;
+uniform mat4 view_matrix;
+uniform mat4 projection_matrix;
+uniform mat4 shadow_view_projection_matrix;
 
 in vec4 vertex;
 in vec3 normal;
 in vec2 vertex_uv;
+in float visibility;
+in mat4 model_matrix;
 
 out vec2 uv;
 out float elevation;
 out vec3 normal_frag;
 out vec4 shadow_coord;
+out float visibility_frag;
 
 void main()
 {
+    mat4 MVP = projection_matrix * view_matrix * model_matrix;
+    mat3 normal_matrix = mat3(transpose(inverse(view_matrix * model_matrix)));
+    mat4 shadow_MVP = shadow_view_projection_matrix * model_matrix;
+
     gl_Position = MVP * vertex;
     elevation = vertex.z;
     uv = vertex_uv;
-    normal_frag = N * normal;
+    normal_frag = normal_matrix * normal;
     shadow_coord = shadow_MVP * vertex;
+    visibility_frag = visibility;
 }

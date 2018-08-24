@@ -13,11 +13,13 @@ struct Depthmap {
     GLuint program;
 
     glm::mat4 view_projection;
-    UniformMat4 MVP;
+    UniformMat4 shader_view_projection;
     VertexAttribArray vertex;
+    VertexAttribArrayMat4 model_matrix;
+
+    ArrayBuffer<glm::mat4> model_matrix_buffer;
 
     GLuint framebuffer;
     GLuint texture_target;
     int texture_size;
 };
-

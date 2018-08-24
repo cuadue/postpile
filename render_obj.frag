@@ -3,11 +3,11 @@
 uniform sampler2D diffuse_map;
 uniform sampler2DShadow shadow_map;
 
-uniform float visibility;
 uniform int num_lights;
 uniform vec3 light_vec[16];
 uniform vec3 light_color[16];
 
+in float visibility_frag;
 in vec3 normal_frag;
 in vec2 uv;
 in float elevation;
@@ -58,5 +58,5 @@ void main()
     color = texture(diffuse_map, uv).rgb *
             clamp(fadeout, 0, 1) *
             light *
-            clamp(visibility, 0, 1);
+            clamp(visibility_frag, 0, 1);
 }

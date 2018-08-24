@@ -13,18 +13,25 @@ void RenderObj::init(const char *vert_file, const char *frag_file)
     vertex.init(program, "vertex", 4);
     normal.init(program, "normal", 3);
     uv.init(program, "vertex_uv", 2);
+    model_matrix.init(program, "model_matrix");
+    model_matrix.instanced = true;
+    visibility.init(program, "visibility", 1);
+    visibility.instanced = true;
 
-    MVP.init(program, "MVP");
-    N.init(program, "N");
-    shadow_MVP.init(program, "shadow_MVP");
+    view_matrix.init(program, "view_matrix");
+    projection_matrix.init(program, "projection_matrix");
+    shadow_view_projection_matrix.init(program, "shadow_view_projection_matrix");
     shadow_map.init(program, "shadow_map");
 
-    visibility.init(program, "visibility");
     diffuse_map.init(program, "diffuse_map");
 
     num_lights.init(program, "num_lights");
     light_vec.init(program, "light_vec");
     light_color.init(program, "light_color");
+
+    model_matrix_buffer.init({}, true);
+    visibility_buffer.init({}, true);
+
     check_gl_error();
 }
 
@@ -43,8 +50,6 @@ void RenderObj::draw(const Drawlist &drawlist)
     normal.activate(drawlist.mesh->normal_buffer);
     uv.activate(drawlist.mesh->uv_buffer);
 
-    glm::mat4 view_projection = drawlist.projection * drawlist.view;
-
     num_lights.set(drawlist.lights.direction.size());
     light_vec.set(drawlist.lights.direction);
     light_color.set(drawlist.lights.color);
@@ -56,26 +61,36 @@ void RenderObj::draw(const Drawlist &drawlist)
     }
     diffuse_map.set(DIFFUSE_MAP_TEXTURE_INDEX);
 
-    std::map<const gl3_material*, std::vector<const Drawlist::Item*>> sorted;
+    std::map<const gl3_material*,
+             std::map<std::string,
+                      std::vector<const Drawlist::Item*>>> instances;
 
     // Sorting by material reduces the relatively substantial overhead of
     // changing the texture.
     for (const Drawlist::Item &item : drawlist.items) {
-        sorted[item.material].push_back(&item);
+        instances[item.material][item.group].push_back(&item);
     }
 
-    for (const auto &pair : sorted) {
-        pair.first->activate(DIFFUSE_MAP_TEXTURE_INDEX);
+    for (const auto &material_pair : instances) {
+        material_pair.first->activate(DIFFUSE_MAP_TEXTURE_INDEX);
+        for (const auto &group_pair : material_pair.second) {
+            std::vector<glm::mat4> model_matrices;
+            std::vector<float> visibilities;
+            for (const auto &item : group_pair.second) {
+                model_matrices.push_back(item->model_matrix);
+                visibilities.push_back(item->visibility);
+            }
 
-        for (const auto &item : pair.second) {
-            glm::mat4 mm = item->model_matrix;
-            shadow_MVP.set(drawlist.shadow_view_projection * mm);
-            glm::mat3 normal_matrix =
-                glm::mat3(glm::transpose(glm::inverse(drawlist.view * mm)));
-            N.set(normal_matrix);
-            MVP.set(view_projection * mm);
-            visibility.set(item->visibility);
-            drawlist.mesh->draw_group(item->group);
+            model_matrix_buffer.buffer_data_dynamic(model_matrices);
+            visibility_buffer.buffer_data_dynamic(visibilities);
+
+            shadow_view_projection_matrix.set(drawlist.shadow_view_projection);
+            view_matrix.set(drawlist.view);
+            projection_matrix.set(drawlist.projection);
+            model_matrix.activate(model_matrix_buffer);
+            visibility.activate(visibility_buffer);
+            drawlist.mesh->draw_group_instanced(
+                group_pair.first, group_pair.second.size());
             check_gl_error();
         }
     }

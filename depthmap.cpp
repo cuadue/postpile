@@ -15,7 +15,11 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
     check_gl_error();
 
     vertex.init(program, "vertex", 4);
-    MVP.init(program, "MVP");
+    shader_view_projection.init(program, "view_projection");
+    model_matrix.init(program, "model_matrix");
+    model_matrix.instanced = true;
+
+    model_matrix_buffer.init({}, true);
 
     glGenFramebuffers(1, &framebuffer);
     glGenTextures(1, &texture_target);
@@ -23,6 +27,7 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
     int size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size);
     resize_texture(size >> 2);
+
 }
 
 void Depthmap::resize_texture(int size)
@@ -92,16 +97,24 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
     glm::mat4 view = glm::lookAt(light_direction, glm::vec3(0, 0, 0),
                                  glm::vec3(0, 1, 0));
     view_projection = projection * view * offset;
+    shader_view_projection.set(view_projection);
 
     check_gl_error();
 
     drawlist.mesh->activate();
     vertex.activate(drawlist.mesh->vertex_buffer);
 
+    std::map<std::string, std::vector<glm::mat4>> instances;
+
     for (const Drawlist::Item &item : drawlist.items) {
-        MVP.set(view_projection * item.model_matrix);
-        // This call is very expensive on Intel(R) Iris(TM) Graphics 6100
-        drawlist.mesh->draw_group(item.group);
+        instances[item.group].push_back(item.model_matrix);
+    }
+
+    for (const auto &pair : instances) {
+        model_matrix_buffer.buffer_data_dynamic(pair.second);
+        model_matrix.activate(model_matrix_buffer);
+        drawlist.mesh->draw_group_instanced(pair.first, pair.second.size());
+
     }
 
     vertex.disable(drawlist.mesh->vertex_buffer);
