@@ -409,7 +409,6 @@ void draw(const tile_generator &tile_gen)
     //Drawlist pine_drawlist = hex_drawlist;
     //pine_drawlist.mesh = &meshes.pine_mesh;
 
-    // For benchmarking
     draw_tile_count = 0;
     //HexCoord<int> cursor = hex_under_mouse(tile_gen);
 
@@ -488,6 +487,7 @@ void draw(const tile_generator &tile_gen)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    RenderPost::prep();
     render_post_top.draw(hex_top_drawlist);
     render_post_side.draw(hex_side_drawlist);
     //render_obj.draw(pine_drawlist);
@@ -655,6 +655,7 @@ int main()
     RenderPost::Setup post_setup;
     post_setup.mesh = &meshes.post_mesh;
     post_setup.material = &hex_textures.material;
+    post_setup.uv_scale = hex_textures.scale;
 
     post_setup.group = "hex_top";
     render_post_top.init(&post_setup);

@@ -8,6 +8,7 @@ struct RenderPost {
         const gl3_mesh *mesh;
         const gl3_material *material;
         std::string group;
+        float uv_scale;
     };
 
     struct Drawlist { 
@@ -28,15 +29,15 @@ struct RenderPost {
     };
 
     void init(const struct Setup *setup);
+    static void prep();
     void draw(const RenderPost::Drawlist &drawlist);
-
-    GLuint program;
 
     VertexAttribArray vertex;
     VertexAttribArray normal;
     VertexAttribArray uv;
     VertexAttribArray position;
     VertexAttribArray visibility;
+    VertexAttribArray uv_offset;
 
     UniformMat4 view_matrix;
     UniformMat4 projection_matrix;
@@ -44,6 +45,7 @@ struct RenderPost {
 
     UniformInt diffuse_map;
     UniformInt shadow_map;
+    UniformFloat shader_uv_scale;
 
     UniformInt num_lights;
     UniformVec3Vec light_vec;
@@ -51,8 +53,10 @@ struct RenderPost {
 
     ArrayBuffer<glm::vec3> position_buffer;
     ArrayBuffer<float> visibility_buffer;
+    ArrayBuffer<glm::vec2> uv_offset_buffer;
 
     VertexArrayObject vao;
     size_t group_count;
     std::string group;
+    float uv_scale;
 };

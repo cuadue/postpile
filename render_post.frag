@@ -2,6 +2,7 @@
 
 uniform sampler2D diffuse_map;
 //uniform sampler2DShadow shadow_map;
+uniform float uv_scale;
 
 uniform int num_lights;
 uniform vec3 light_vec[16];
@@ -12,6 +13,7 @@ in vec3 normal_frag;
 in vec2 uv;
 in float elevation;
 //in vec4 shadow_coord;
+in vec2 uv_offset_frag;
 
 out vec3 color;
 
@@ -43,6 +45,17 @@ float ambient()
     return ambient_min + spread * clamped;
 }
 
+float tile(float x)
+{
+    float s = sign(x);
+    return 1 - fract(1 - s * fract(s * x));
+}
+
+vec2 tile2(vec2 v)
+{
+    return vec2(tile(v.x), tile(v.y));
+}
+
 void main()
 {
     float fadeout = 1 + elevation / 2;
@@ -57,7 +70,9 @@ void main()
     float shadow = 1; //shadow_intensity();
     light = mix(clamp(shadow * light, 0, 1), vec3(1, 1, 1),  ambient());
 
-    color = texture(diffuse_map, uv).rgb *
+    vec2 tiled_uv = tile2(uv) / uv_scale + uv_offset_frag;
+
+    color = texture(diffuse_map, tiled_uv).rgb *
             clamp(fadeout, 0, 1) *
             light *
             clamp(visibility_frag, 0, 1);

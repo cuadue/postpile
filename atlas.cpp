@@ -18,7 +18,6 @@ void TexAtlas::init(const char *img, const char *almanac)
         }
         else if (sscanf(buf, "%f %f %s", &x, &y, filename)) {
             offset[filename] = glm::vec2(x, y);
-            printf("%g %g %s\n", x, y, filename);
         }
     }
 }

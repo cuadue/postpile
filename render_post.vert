@@ -9,12 +9,14 @@ in vec3 normal;
 in vec2 vertex_uv;
 in float visibility;
 in vec3 position;
+in vec2 uv_offset;
 
 out vec2 uv;
 out float elevation;
 out vec3 normal_frag;
 //out vec4 shadow_coord;
 out float visibility_frag;
+out vec2 uv_offset_frag;
 
 void main()
 {
@@ -28,6 +30,7 @@ void main()
     gl_Position = MVP * vertex;
     elevation = vertex.z;
     uv = vertex_uv;
+    uv_offset_frag = uv_offset;
     normal_frag = normal_matrix * normal;
     //shadow_coord = shadow_MVP * vertex;
     visibility_frag = visibility;
