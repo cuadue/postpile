@@ -106,13 +106,21 @@ void VertexArrayObject::init()
 {
     glGenVertexArrays(1, &location);
     assert(location);
+}
+
+void VertexArrayObject::bind()
+{
     glBindVertexArray(location);
     check_gl_error();
 }
 
+void VertexArrayObject::unbind()
+{
+    glBindVertexArray(0);
+}
+
 void gl3_mesh::init(const wf_mesh& wf)
 {
-    vao.init();
     vertex_buffer.init(wf.vertex4, true);
     normal_buffer.init(wf.normal3, wf.has_normals());
     uv_buffer.init(wf.texture2, wf.has_texture_coords());
@@ -130,7 +138,6 @@ void gl3_mesh::init(const wf_mesh& wf)
         groups[pair.first].init(pair.second[0]);
     }
 
-    glBindVertexArray(0);
     check_gl_error();
 }
 
@@ -140,7 +147,7 @@ void VertexAttribArray::init(GLuint program, const char *name, int _size)
     size = _size;
 }
 
-void VertexAttribArray::disable(const ArrayBuffer<float> &ab) const
+void VertexAttribArray::disable(const ArrayBufferBase &ab) const
 {
     if (!ab.present) return;
     check_gl_error();
@@ -148,7 +155,7 @@ void VertexAttribArray::disable(const ArrayBuffer<float> &ab) const
     check_gl_error();
 }
 
-void VertexAttribArray::activate(const ArrayBuffer<float> &ab) const
+void VertexAttribArray::activate(const ArrayBufferBase &ab) const
 {
     if (!ab.present) return;
     glEnableVertexAttribArray(location);
@@ -193,11 +200,6 @@ void VertexAttribArrayMat4::activate(const ArrayBuffer<glm::mat4> &ab) const
         }
     }
     check_gl_error();
-}
-
-void gl3_mesh::activate() const
-{
-    glBindVertexArray(vao.location);
 }
 
 void gl3_mesh::draw_group(const string &name) const
@@ -289,15 +291,4 @@ gl3_material gl3_material::solid_color(glm::vec3 rgb)
     data[2] = rgb.b * 255;
     data[3] = 255;
     return gl3_material(load_texture_2d(data, 1, 1));
-}
-
-void _check_drawlist(const Drawlist &dl, const char *f, int l)
-{
-    for (const Drawlist::Item &item : dl.items) {
-        if (!dl.mesh->groups.count(item.group)) {
-            fprintf(stderr, "%s:%d: No such group: %s\n",
-                    f, l, item.group.c_str());
-            abort();
-        }
-    }
 }

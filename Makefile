@@ -7,24 +7,26 @@ endif
 
 PKGS = glew glfw3
 
-CFLAGS += -Werror -Wall -Wextra -std=c99 -O1
+CFLAGS += -Werror -Wall -Wextra -std=c99 -O1 -g
 
-CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1
+CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1 -g
 CXXFLAGS += $(shell pkg-config --static --cflags $(PKGS))
 
 LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
 LDFLAGS += -lm
 
 OBJS = postpile.o wavefront.o wavefront_mtl.o hex.o
-OBJS += tiles.o osn.o time.o render_obj.o
-OBJS += gl3.o gl3_aux.o gl_aux.o lmdebug.o depthmap.o
+OBJS += tiles.o osn.o time.o
+OBJS += gl3.o gl3_aux.o gl_aux.o
+#OBJS += lmdebug.o
+#OBJS += render_obj.o
+OBJS += render_post.o
+#OBJS += depthmap.o
 OBJS += stb_image.o intersect.o
+OBJS += atlas.o
 
-tex:
-	mkdir -p $@
-	cd img; for f in ./* \
-	;do convert "$$f" -resize 256x256 -sigmoidal-contrast '4,50%' "../$@/$$f" \
-	;done
+hex_atlas.png:
+	python make_atlas.py $@ 2048 img/*.jpg
 
 postpile.o: postpile.cpp fir_filter.hpp
 %.o: %.cpp %.hpp
@@ -33,7 +35,7 @@ postpile.o: postpile.cpp fir_filter.hpp
 %.o: %.c %.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-postpile: $(OBJS) tex
+postpile: $(OBJS) hex_atlas.png
 	$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 ifeq ($(shell uname), Darwin)

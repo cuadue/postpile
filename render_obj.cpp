@@ -100,3 +100,14 @@ void RenderObj::draw(const Drawlist &drawlist)
     uv.disable(drawlist.mesh->uv_buffer);
     check_gl_error();
 }
+
+void _check_drawlist(const RenderObj::Drawlist &dl, const char *f, int l)
+{
+    for (const auto &item : dl.items) {
+        if (!dl.mesh->groups.count(item.group)) {
+            fprintf(stderr, "%s:%d: No such group: %s\n",
+                    f, l, item.group.c_str());
+            abort();
+        }
+    }
+}

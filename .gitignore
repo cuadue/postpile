@@ -5,3 +5,6 @@ tex/
 **/tags
 Postpile.app
 **/.DS_Store
+hex_atlas.png
+hex_atlas.png.almanac
+*.trace

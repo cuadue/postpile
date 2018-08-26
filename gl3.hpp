@@ -10,6 +10,7 @@
 extern "C" {
 #include <stdio.h>
 #include "gl3_aux.h"
+#include "gl_aux.h"
 }
 
 #include "wavefront.hpp"
@@ -32,11 +33,13 @@ typedef Uniform<std::vector<glm::vec3>> UniformVec3Vec;
 typedef Uniform<int> UniformInt;
 typedef Uniform<float> UniformFloat;
 
-template <typename T>
-struct ArrayBuffer {
+struct ArrayBufferBase {
     bool present = false;
     GLuint buffer;
+};
 
+template <typename T>
+struct ArrayBuffer : ArrayBufferBase {
     void init(const std::vector<T> &data, bool _present)
     {
         present = _present;
@@ -67,8 +70,8 @@ struct ArrayBuffer {
 
 struct VertexAttribArray {
     void init(GLuint program, const char *name, int size);
-    void activate(const ArrayBuffer<float>& ab) const;
-    void disable(const ArrayBuffer<float>& ab) const;
+    void activate(const ArrayBufferBase& ab) const;
+    void disable(const ArrayBufferBase& ab) const;
     GLuint location;
     int size;
     bool instanced = false;
@@ -102,11 +105,12 @@ struct gl3_material {
 
 struct VertexArrayObject {
     void init();
+    void bind();
+    void unbind();
     GLuint location;
 };
 
 struct gl3_mesh {
-    VertexArrayObject vao;
     ArrayBuffer<float> vertex_buffer;
     ArrayBuffer<float> normal_buffer;
     ArrayBuffer<float> uv_buffer;
@@ -115,8 +119,10 @@ struct gl3_mesh {
     void draw_group(const std::string &group) const;
     void draw_group_instanced(const std::string &group, int n) const;
 
+    gl3_group all;
+    void draw_all_instanced(int n) const;
+
     void init(const wf_mesh &wf);
-    void activate() const;
 };
 
 struct Light {
@@ -137,24 +143,4 @@ struct Lightmap {
     GLuint texture;
 };
 
-struct Drawlist {
-    const gl3_mesh *mesh;
-    glm::mat4 view;
-    glm::mat4 projection;
-    glm::mat4 shadow_view_projection;
-
-    GLuint depth_map = UINT_MAX;
-
-    struct Item {
-        const gl3_material *material;
-        glm::mat4 model_matrix;
-        float visibility;
-        std::string group;
-    };
-
-    std::vector<Item> items;
-    Lights lights;
-};
-
-void _check_drawlist(const Drawlist &, const char *, int);
 #define CHECK_DRAWLIST(dl) _check_drawlist(dl, __FILE__, __LINE__)

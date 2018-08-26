@@ -27,9 +27,9 @@ extern "C" {
 #include "fir_filter.hpp"
 #include "hex.hpp"
 #include "time.hpp"
-#include "render_obj.hpp"
-#include "lmdebug.hpp"
-#include "depthmap.hpp"
+#include "render_post.hpp"
+//#include "lmdebug.hpp"
+//#include "depthmap.hpp"
 #include "intersect.hpp"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
@@ -51,22 +51,21 @@ int draw_tile_count = 0;
 mat4 proj_matrix;
 mat4 view_matrix;
 vec2 mouse;
-map<char, gl3_material> top_materials;
-map<char, gl3_material> side_materials;
+TexAtlas hex_textures;
 gl3_material cursor_mtl, green, brown;
-LmDebug lmdebug;
+//LmDebug lmdebug;
 int debug_show_lightmap = 0;
 int enable_shadows = 1;
-Depthmap depthmap;
+//Depthmap depthmap;
 
 struct Meshes {
     gl3_mesh post_mesh;
     gl3_mesh pine_mesh;
     gl3_mesh cursor_mesh;
-    gl3_mesh lmdebug_mesh;
+    //gl3_mesh lmdebug_mesh;
 };
 std::vector<Triangle> post_triangles;
-RenderObj render_obj;
+RenderPost render_post_top, render_post_side;
 
 // scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {
@@ -177,19 +176,6 @@ int popd(int fd)
     return close(fd);
 }
 
-map<char, gl3_material> load_tex_mtls(const map<char, string> &texfiles)
-{
-    int olddir = pushd("tex");
-
-    map<char, gl3_material> ret;
-    for (const auto &p : texfiles) {
-        ret[p.first].init(p.second);
-    }
-
-    popd(olddir);
-    return ret;
-}
-
 float hex_elevation(const tile_generator &tile_gen, HexCoord<int> coord)
 {
     Point<double> center = hex_to_pixel(coord);
@@ -262,8 +248,7 @@ glm::mat4 step_view_matrix(const tile_generator &tile_gen)
     return glm::lookAt(eye, center, vec3(0, 0, 1));
 }
 
-inline
-mat4 hex_model_matrix(const tile_generator &tile_gen, HexCoord<int> coord)
+glm::vec3 hex_position(const tile_generator &tile_gen, HexCoord<int> coord)
 {
     double distance = hex_distance(
         HexCoord<double>::from(coord),
@@ -272,7 +257,7 @@ mat4 hex_model_matrix(const tile_generator &tile_gen, HexCoord<int> coord)
     float z = elevation - CLIFF_HEIGHT * cliff(distance);
 
     Point<double> center = hex_to_pixel(coord);
-    return glm::translate(mat4(1), vec3(center.x, center.y, z));
+    return vec3(center.x, center.y, z);
 }
 
 char float_index(const string &coll, float x)
@@ -316,7 +301,8 @@ float min_distance_to_hex(
     const tile_generator &tile_gen,
     const HexCoord<int> coord)
 {
-    glm::mat4 mv = view_matrix * hex_model_matrix(tile_gen, coord);
+    vec3 position = hex_position(tile_gen, coord);
+    glm::mat4 mv = view_matrix * glm::translate(glm::mat4(1), position);
     float ret = INFINITY;
     for (Triangle triangle : post_triangles) {
         for (int i = 0; i < 3; i++) {
@@ -399,46 +385,45 @@ double cliff(double distance)
     return ret;
 }
 
-void draw(const tile_generator &tile_gen, const Meshes &meshes)
+void draw(const tile_generator &tile_gen)
 {
-    Drawlist hex_drawlist;
-    hex_drawlist.mesh = &meshes.post_mesh;
-    hex_drawlist.view = view_matrix;
-    hex_drawlist.projection = proj_matrix;
+    RenderPost::Drawlist hex_top_drawlist, hex_side_drawlist;
+    hex_top_drawlist.view = view_matrix;
+    hex_top_drawlist.projection = proj_matrix;
 
     auto sun = astro_light(game_time.fractional_day(), sun_color, 1);
     auto moon = astro_light(game_time.fractional_night(), moon_color, -1);
 
     // Index 0 is the shadow
     if (sun.direction.z > 0) {
-        hex_drawlist.lights.put(sun);
-        hex_drawlist.lights.put(moon);
+        hex_top_drawlist.lights.put(sun);
+        hex_top_drawlist.lights.put(moon);
     }
     else {
-        hex_drawlist.lights.put(moon);
-        hex_drawlist.lights.put(sun);
+        hex_top_drawlist.lights.put(moon);
+        hex_top_drawlist.lights.put(sun);
     }
 
-    Drawlist pine_drawlist = hex_drawlist;
-    pine_drawlist.mesh = &meshes.pine_mesh;
+    hex_side_drawlist = hex_top_drawlist;
+
+    //Drawlist pine_drawlist = hex_drawlist;
+    //pine_drawlist.mesh = &meshes.pine_mesh;
 
     // For benchmarking
     draw_tile_count = 0;
-    HexCoord<int> cursor = hex_under_mouse(tile_gen);
+    //HexCoord<int> cursor = hex_under_mouse(tile_gen);
 
     for (const HexCoord<int>& coord : visible_hexes()) {
-        Drawlist::Item top;
-        Drawlist::Item side;
-
-        mat4 mm = hex_model_matrix(tile_gen, coord);
+        RenderPost::Drawlist::Item top, side;
+        vec3 position = hex_position(tile_gen, coord);
 
         char top_tile = hex_tile(tile_gen, top_tileset, coord);
-        char side_tile = hex_tile(tile_gen, side_tileset, coord);
+        top.uv_offset = hex_textures.offset[top_texfiles.at(top_tile)];
+        top.position = position;
 
-        top.model_matrix = mm;
-        top.group = "hex_top";
-        side.model_matrix = mm;
-        side.group = "side";
+        char side_tile = hex_tile(tile_gen, side_tileset, coord);
+        side.uv_offset = hex_textures.offset[side_texfiles.at(side_tile)];
+        side.position = position;
 
         double distance = hex_distance(
             HexCoord<double>::from(coord),
@@ -446,17 +431,17 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
         top.visibility = 1 - cliff(distance);
         side.visibility = top.visibility;
 
-        top.material = &top_materials.at(top_tile);
-        side.material = &side_materials.at(side_tile);
-
+        /*
         if (coord.equals(cursor)) {
             top.material = &cursor_mtl;
             side.material = &cursor_mtl;
         }
+        */
 
-        hex_drawlist.items.push_back(top);
-        hex_drawlist.items.push_back(side);
+        hex_top_drawlist.items.push_back(top);
+        hex_side_drawlist.items.push_back(side);
 
+        /*
         for (const glm::mat4 mat : pines_on_tile(tile_gen, coord)) {
             Drawlist::Item canopy;
             Drawlist::Item trunk;
@@ -465,18 +450,19 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
             canopy.material = &green;
 
             canopy.model_matrix = mm * mat;
-            trunk = canopy;
-            trunk.material = &brown;
+            trunk = canopy; trunk.material = &brown;
             trunk.group = "trunk";
             canopy.group = "canopy";
 
-            pine_drawlist.items.push_back(canopy);
-            pine_drawlist.items.push_back(trunk);
+            //pine_drawlist.items.push_back(canopy);
+            //pine_drawlist.items.push_back(trunk);
         }
+        */
 
         draw_tile_count++;
     }
 
+    /*
     if (enable_shadows) {
         depthmap.begin();
         // TODO get rid of this offset
@@ -487,12 +473,13 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
             hex_model_matrix(tile_gen, view.center) *
             glm::scale(glm::vec3(-1.0, -1.0, 1.0)));
         hex_drawlist.depth_map = depthmap.texture_target;
-        pine_drawlist.depth_map = depthmap.texture_target;
+        //pine_drawlist.depth_map = depthmap.texture_target;
 
         hex_drawlist.shadow_view_projection = depthmap.view_projection;
         // This makes global self shadows on the trees. Doesn't look great...
-        pine_drawlist.shadow_view_projection = depthmap.view_projection;
+        //pine_drawlist.shadow_view_projection = depthmap.view_projection;
     }
+    */
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int w = 0, h = 0;
@@ -501,10 +488,12 @@ void draw(const tile_generator &tile_gen, const Meshes &meshes)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    render_obj.draw(hex_drawlist);
-    render_obj.draw(pine_drawlist);
+    render_post_top.draw(hex_top_drawlist);
+    render_post_side.draw(hex_side_drawlist);
+    //render_obj.draw(pine_drawlist);
 }
 
+/*
 void lmdebug_draw(const gl3_mesh &mesh)
 {
     if (!debug_show_lightmap) return;
@@ -515,6 +504,7 @@ void lmdebug_draw(const gl3_mesh &mesh)
     drawlist.items.push_back(item);
     lmdebug.draw(drawlist, depthmap.texture_target);
 }
+*/
 
 void resize()
 {
@@ -581,8 +571,8 @@ void key_callback(GLFWwindow *, int key, int , int action, int )
             case GLFW_KEY_R: view.yaw++; break;
 
             case GLFW_KEY_F1: debug_show_lightmap ^= 1; break;
-            case GLFW_KEY_F2: depthmap.shrink_texture(); break;
-            case GLFW_KEY_F3: depthmap.grow_texture(); break;
+            //case GLFW_KEY_F2: depthmap.shrink_texture(); break;
+            //case GLFW_KEY_F3: depthmap.grow_texture(); break;
             case GLFW_KEY_F4: enable_shadows ^= 1; break;
         }
     }
@@ -644,13 +634,10 @@ int main()
     check_gl_error();
     resize();
 
-    render_obj.init("render_obj.vert", "render_obj.frag");
+    //lmdebug.init("lmdebug.vert", "lmdebug.frag");
     check_gl_error();
 
-    lmdebug.init("lmdebug.vert", "lmdebug.frag");
-    check_gl_error();
-
-    depthmap.init("depthmap.vert", "depthmap.frag");
+    //depthmap.init("depthmap.vert", "depthmap.frag");
     check_gl_error();
 
     Meshes meshes;
@@ -660,15 +647,22 @@ int main()
 
     meshes.pine_mesh.init(wf_mesh_from_file("pine.obj"));
 
-    assert(meshes.post_mesh.vao.location);
-    top_materials = load_tex_mtls(top_texfiles);
-    side_materials = load_tex_mtls(side_texfiles);
+    hex_textures.init("hex_atlas.png", "hex_atlas.png.almanac");
     cursor_mtl = gl3_material::solid_color({1, 0, 0});
     green = gl3_material::solid_color({.1, .7, .2});
     brown = gl3_material::solid_color({.6, .3, .2});
 
+    RenderPost::Setup post_setup;
+    post_setup.mesh = &meshes.post_mesh;
+    post_setup.material = &hex_textures.material;
+
+    post_setup.group = "hex_top";
+    render_post_top.init(&post_setup);
+    post_setup.group = "side";
+    render_post_side.init(&post_setup);
+
     meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
-    meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
+    //meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
     tile_generator tile_gen;
     float harmonics[] = { 7, 2, 1, 2, 3, 1 };
     tile_gen.harmonics = harmonics;
@@ -681,6 +675,8 @@ int main()
     float avg_tiles_count = 500;
     int i=0;
 
+    glfwSwapBuffers(window);
+
     while (!glfwWindowShouldClose(window)) {
         if (gettimeofday(&starttime, NULL) < 0) {
             perror("gettimeofday");
@@ -688,8 +684,8 @@ int main()
         glfwPollEvents();
         handle_static_keys();
         tick(tile_gen);
-        draw(tile_gen, meshes);
-        lmdebug_draw(meshes.lmdebug_mesh);
+        draw(tile_gen);
+        //lmdebug_draw(meshes.lmdebug_mesh);
 
         if (gettimeofday(&frametime, NULL) < 0) {
             perror("gettimeofday");

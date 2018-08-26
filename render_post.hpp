@@ -1,18 +1,16 @@
 #pragma once
 
 #include "gl3.hpp"
+#include "atlas.hpp"
 
-extern "C" {
-#include "gl_aux.h"
-}
+struct RenderPost {
+    struct Setup {
+        const gl3_mesh *mesh;
+        const gl3_material *material;
+        std::string group;
+    };
 
-struct RenderObj {
-    struct Drawlist {
-        struct Setup {
-            const gl3_mesh *mesh;
-            const gl3_material *material;
-        };
-
+    struct Drawlist { 
         glm::mat4 view;
         glm::mat4 projection;
         glm::mat4 shadow_view_projection;
@@ -21,25 +19,23 @@ struct RenderObj {
 
         struct Item {
             glm::vec2 uv_offset;
-            glm::mat4 model_matrix;
+            glm::vec3 position;
             float visibility;
-            std::string group;
         };
 
         std::vector<Item> items;
         Lights lights;
     };
 
-    RenderObj();
-    void init(const char *vert_file, const char *frag_file);
-    void draw(const Drawlist &drawlist);
+    void init(const struct Setup *setup);
+    void draw(const RenderPost::Drawlist &drawlist);
 
     GLuint program;
 
     VertexAttribArray vertex;
     VertexAttribArray normal;
     VertexAttribArray uv;
-    VertexAttribArrayMat4 model_matrix;
+    VertexAttribArray position;
     VertexAttribArray visibility;
 
     UniformMat4 view_matrix;
@@ -53,8 +49,10 @@ struct RenderObj {
     UniformVec3Vec light_vec;
     UniformVec3Vec light_color;
 
-    ArrayBuffer<glm::mat4> model_matrix_buffer;
+    ArrayBuffer<glm::vec3> position_buffer;
     ArrayBuffer<float> visibility_buffer;
-};
 
-void _check_drawlist(const RenderObj::Drawlist &, const char *, int);
+    VertexArrayObject vao;
+    size_t group_count;
+    std::string group;
+};
