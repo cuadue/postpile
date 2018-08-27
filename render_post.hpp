@@ -7,7 +7,6 @@ struct RenderPost {
     struct Setup {
         const gl3_mesh *mesh;
         const gl3_material *material;
-        std::string group;
         float uv_scale;
     };
 
@@ -24,13 +23,24 @@ struct RenderPost {
             float visibility;
         };
 
-        std::vector<Item> items;
+        std::map<std::string, std::vector<Item>> grouped_items;
+
         Lights lights;
     };
 
     void init(const struct Setup *setup);
+    void add_group(const char *name);
     static void prep();
     void draw(const RenderPost::Drawlist &drawlist);
+
+private:
+    struct PerGroupData {
+        VertexArrayObject vao;
+        const gl3_group *indices;
+        size_t count;
+    };
+
+    GLuint program;
 
     VertexAttribArray vertex;
     VertexAttribArray normal;
@@ -55,8 +65,8 @@ struct RenderPost {
     ArrayBuffer<float> visibility_buffer;
     ArrayBuffer<glm::vec2> uv_offset_buffer;
 
-    VertexArrayObject vao;
     size_t group_count;
-    std::string group;
     float uv_scale;
+    std::map<std::string, PerGroupData> groups;
+    const gl3_material *material;
 };

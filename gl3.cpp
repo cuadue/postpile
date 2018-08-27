@@ -83,22 +83,19 @@ void gl3_group::init(const wf_group& wf)
     check_gl_error();
 }
 
+void gl3_group::bind_elements() const
+{
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
+}
+
 void gl3_group::draw() const
 {
-    check_gl_error();
-    assert(index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
     glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, NULL);
-    check_gl_error();
 }
 
 void gl3_group::draw_instanced(int quantity) const
 {
-    check_gl_error();
-    assert(index_buffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
     glDrawElementsInstanced(GL_TRIANGLES, count, GL_UNSIGNED_INT, NULL, quantity);
-    check_gl_error();
 }
 
 
@@ -108,7 +105,7 @@ void VertexArrayObject::init()
     assert(location);
 }
 
-void VertexArrayObject::bind()
+void VertexArrayObject::bind() const
 {
     glBindVertexArray(location);
     check_gl_error();
@@ -155,7 +152,7 @@ void VertexAttribArray::disable(const ArrayBufferBase &ab) const
     check_gl_error();
 }
 
-void VertexAttribArray::activate(const ArrayBufferBase &ab) const
+void VertexAttribArray::point_to(const ArrayBufferBase &ab) const
 {
     if (!ab.present) return;
     glEnableVertexAttribArray(location);
@@ -184,7 +181,7 @@ void VertexAttribArrayMat4::disable(const ArrayBuffer<glm::mat4> &ab) const
     check_gl_error();
 }
 
-void VertexAttribArrayMat4::activate(const ArrayBuffer<glm::mat4> &ab) const
+void VertexAttribArrayMat4::point_to(const ArrayBuffer<glm::mat4> &ab) const
 {
     if (!ab.present) return;
     glBindBuffer(GL_ARRAY_BUFFER, ab.buffer);
@@ -230,7 +227,7 @@ static GLuint load_texture_2d(uint8_t *data, int w, int h)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     check_gl_error();
 
     float aniso;

@@ -56,6 +56,7 @@ vec2 tile2(vec2 v)
     return vec2(tile(v.x), tile(v.y));
 }
 
+uniform mat4 view_matrix;
 void main()
 {
     float fadeout = 1 + elevation / 2;

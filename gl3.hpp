@@ -70,7 +70,7 @@ struct ArrayBuffer : ArrayBufferBase {
 
 struct VertexAttribArray {
     void init(GLuint program, const char *name, int size);
-    void activate(const ArrayBufferBase& ab) const;
+    void point_to(const ArrayBufferBase& ab) const;
     void disable(const ArrayBufferBase& ab) const;
     GLuint location;
     int size;
@@ -79,7 +79,7 @@ struct VertexAttribArray {
 
 struct VertexAttribArrayMat4 {
     void init(GLuint program, const char *name);
-    void activate(const ArrayBuffer<glm::mat4>& ab) const;
+    void point_to(const ArrayBuffer<glm::mat4>& ab) const;
     void disable(const ArrayBuffer<glm::mat4>& ab) const;
     GLuint location0;
     VertexAttribArray attrib_array;
@@ -92,6 +92,7 @@ struct gl3_group {
     void init(const wf_group &wf);
     void draw() const;
     void draw_instanced(int quantity) const;
+    void bind_elements() const;
 };
 
 struct gl3_material {
@@ -105,8 +106,8 @@ struct gl3_material {
 
 struct VertexArrayObject {
     void init();
-    void bind();
-    void unbind();
+    void bind() const;
+    static void unbind();
     GLuint location;
 };
 

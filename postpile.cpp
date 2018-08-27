@@ -65,7 +65,7 @@ struct Meshes {
     //gl3_mesh lmdebug_mesh;
 };
 std::vector<Triangle> post_triangles;
-RenderPost render_post_top, render_post_side;
+RenderPost render_post;
 
 // scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {
@@ -387,30 +387,30 @@ double cliff(double distance)
 
 void draw(const tile_generator &tile_gen)
 {
-    RenderPost::Drawlist hex_top_drawlist, hex_side_drawlist;
-    hex_top_drawlist.view = view_matrix;
-    hex_top_drawlist.projection = proj_matrix;
+    RenderPost::Drawlist hex_drawlist;
+    hex_drawlist.view = view_matrix;
+    hex_drawlist.projection = proj_matrix;
 
     auto sun = astro_light(game_time.fractional_day(), sun_color, 1);
     auto moon = astro_light(game_time.fractional_night(), moon_color, -1);
 
     // Index 0 is the shadow
     if (sun.direction.z > 0) {
-        hex_top_drawlist.lights.put(sun);
-        hex_top_drawlist.lights.put(moon);
+        hex_drawlist.lights.put(sun);
+        hex_drawlist.lights.put(moon);
     }
     else {
-        hex_top_drawlist.lights.put(moon);
-        hex_top_drawlist.lights.put(sun);
+        hex_drawlist.lights.put(moon);
+        hex_drawlist.lights.put(sun);
     }
-
-    hex_side_drawlist = hex_top_drawlist;
 
     //Drawlist pine_drawlist = hex_drawlist;
     //pine_drawlist.mesh = &meshes.pine_mesh;
 
     draw_tile_count = 0;
     //HexCoord<int> cursor = hex_under_mouse(tile_gen);
+    auto& side_items = hex_drawlist.grouped_items["side"];
+    auto& top_items = hex_drawlist.grouped_items["hex_top"];
 
     for (const HexCoord<int>& coord : visible_hexes()) {
         RenderPost::Drawlist::Item top, side;
@@ -437,8 +437,8 @@ void draw(const tile_generator &tile_gen)
         }
         */
 
-        hex_top_drawlist.items.push_back(top);
-        hex_side_drawlist.items.push_back(side);
+        top_items.push_back(top);
+        side_items.push_back(side);
 
         /*
         for (const glm::mat4 mat : pines_on_tile(tile_gen, coord)) {
@@ -487,9 +487,7 @@ void draw(const tile_generator &tile_gen)
     glDrawBuffer(GL_BACK);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    RenderPost::prep();
-    render_post_top.draw(hex_top_drawlist);
-    render_post_side.draw(hex_side_drawlist);
+    render_post.draw(hex_drawlist);
     //render_obj.draw(pine_drawlist);
 }
 
@@ -656,11 +654,7 @@ int main()
     post_setup.mesh = &meshes.post_mesh;
     post_setup.material = &hex_textures.material;
     post_setup.uv_scale = hex_textures.scale;
-
-    post_setup.group = "hex_top";
-    render_post_top.init(&post_setup);
-    post_setup.group = "side";
-    render_post_side.init(&post_setup);
+    render_post.init(&post_setup);
 
     meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
     //meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));

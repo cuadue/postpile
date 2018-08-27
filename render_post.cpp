@@ -3,16 +3,11 @@
 #define DIFFUSE_MAP_TEXTURE_INDEX 1
 #define SHADOW_MAP_TEXTURE_INDEX 2
 
-static GLuint program = INT_MAX;
-
 void RenderPost::init(const RenderPost::Setup *setup)
 {
-    if (program == INT_MAX) {
-        program = load_program("render_post.vert", "render_post.frag");
-    }
-    group = setup->group;
-    group_count = setup->mesh->groups.at(group).count;
+    program = load_program("render_post.vert", "render_post.frag");
     uv_scale = setup->uv_scale;
+    material = setup->material;
     assert(program);
 
     vertex.init(program, "vertex", 4);
@@ -41,38 +36,38 @@ void RenderPost::init(const RenderPost::Setup *setup)
     visibility_buffer.init({}, true);
     uv_offset_buffer.init({}, true);
 
-    vao.init();
-    vao.bind();
+    for (const auto &pair : setup->mesh->groups) {
+        PerGroupData d;
+        d.vao.init();
+        d.vao.bind();
+        d.count = pair.second.count;
 
-    vertex.activate(setup->mesh->vertex_buffer);
-    normal.activate(setup->mesh->normal_buffer);
-    uv.activate(setup->mesh->uv_buffer);
-    position.activate(position_buffer);
-    visibility.activate(visibility_buffer);
-    uv_offset.activate(uv_offset_buffer);
-    setup->material->activate(DIFFUSE_MAP_TEXTURE_INDEX);
+        vertex.point_to(setup->mesh->vertex_buffer);
+        normal.point_to(setup->mesh->normal_buffer);
+        uv.point_to(setup->mesh->uv_buffer);
+        position.point_to(position_buffer);
+        visibility.point_to(visibility_buffer);
+        uv_offset.point_to(uv_offset_buffer);
 
-    GLuint index_buffer = setup->mesh->groups.at(group).index_buffer;
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, index_buffer);
+        d.indices = &pair.second;
 
-    vao.unbind();
+        d.vao.unbind();
+
+        groups[pair.first] = d;
+    }
 
     check_gl_error();
 }
 
-void RenderPost::prep()
+void RenderPost::draw(const RenderPost::Drawlist &drawlist)
 {
     check_gl_error();
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glUseProgram(program);
+    material->activate(DIFFUSE_MAP_TEXTURE_INDEX);
     check_gl_error();
-}
-
-void RenderPost::draw(const RenderPost::Drawlist &drawlist)
-{
-    vao.bind();
 
     num_lights.set(drawlist.lights.direction.size());
     light_vec.set(drawlist.lights.direction);
@@ -87,27 +82,42 @@ void RenderPost::draw(const RenderPost::Drawlist &drawlist)
     */
     diffuse_map.set(DIFFUSE_MAP_TEXTURE_INDEX);
 
-    std::vector<glm::vec3> positions;
-    std::vector<float> visibilities;
-    std::vector<glm::vec2> uv_offsets;
-
-    for (const auto &item : drawlist.items) {
-        positions.push_back(item.position);
-        visibilities.push_back(item.visibility);
-        uv_offsets.push_back(item.uv_offset);
-    }
-
-    position_buffer.buffer_data_dynamic(positions);
-    visibility_buffer.buffer_data_dynamic(visibilities);
-    uv_offset_buffer.buffer_data_dynamic(uv_offsets);
-
-    //shadow_view_projection_matrix.set(drawlist.shadow_view_projection);
     view_matrix.set(drawlist.view);
     projection_matrix.set(drawlist.projection);
     shader_uv_scale.set(uv_scale);
 
-    glDrawElementsInstanced(GL_TRIANGLES, group_count, GL_UNSIGNED_INT, NULL,
-                            drawlist.items.size());
+    std::vector<glm::vec3> positions;
+    std::vector<float> visibilities;
+    for (const auto &pair : drawlist.grouped_items) {
+        for (const auto &item : pair.second) {
+            positions.push_back(item.position);
+            visibilities.push_back(item.visibility);
+        }
+        break;
+    }
+
+    position_buffer.buffer_data_dynamic(positions);
+    visibility_buffer.buffer_data_dynamic(visibilities);
+
+    for (const auto &pair : drawlist.grouped_items) {
+        std::vector<glm::vec2> uv_offsets;
+
+        // TODO buffer directly instead of copying
+        for (const auto &item : pair.second) {
+            uv_offsets.push_back(item.uv_offset);
+        }
+
+        uv_offset_buffer.buffer_data_dynamic(uv_offsets);
+
+        //shadow_view_projection_matrix.set(drawlist.shadow_view_projection);
+
+        const auto &render_group = groups[pair.first];
+        render_group.vao.bind();
+        render_group.indices->bind_elements();
+        render_group.indices->draw_instanced(positions.size());
+    }
+
+    //VertexArrayObject::unbind();
 
     check_gl_error();
 }
