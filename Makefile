@@ -7,9 +7,9 @@ endif
 
 PKGS = glew glfw3
 
-CFLAGS += -Werror -Wall -Wextra -std=c99 -O1 -g
+CFLAGS += -Werror -Wall -Wextra -std=c99 -O3
 
-CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O1 -g
+CXXFLAGS += -Werror -Wall -Wextra -std=c++11 -O3
 CXXFLAGS += $(shell pkg-config --static --cflags $(PKGS))
 
 LDFLAGS += $(shell pkg-config --static --libs $(PKGS))
