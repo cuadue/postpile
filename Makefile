@@ -39,14 +39,14 @@ postpile: $(OBJS) hex_atlas.png
 	$(CXX) -o $@ $(OBJS) $(LDFLAGS)
 
 ifeq ($(shell uname), Darwin)
-Postpile.app: postpile tex post.obj
+Postpile.app: postpile
 	mkdir -p $@/Contents/MacOS/Resources
 	cp -a postpile $@/Contents/MacOS/_postpile
 	cp -a mac/bootstrap.sh $@/Contents/MacOS/postpile
 	cp -a mac/Info.plist $@/Contents
 	cp -a mac/PkgInfo $@/Contents
 	cp -a mac/*.icns $@/Contents/MacOS
-	cp -a *.obj tex $@/Contents/MacOS
+	cp -a *.obj hex_atlas.png{,.almanac} $@/Contents/MacOS
 	cp -a *.vert *.frag $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glew/ {print $$1}')" $@/Contents/MacOS
 	cp -afLH "$$(otool -L postpile | awk '/glfw/ {print $$1}')" $@/Contents/MacOS
