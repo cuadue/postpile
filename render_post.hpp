@@ -16,6 +16,7 @@ struct RenderPost {
         glm::mat4 shadow_view_projection;
 
         GLuint depth_map = UINT_MAX;
+        bool use_alpha = false;
 
         struct Item {
             glm::vec2 uv_offset;
@@ -28,7 +29,7 @@ struct RenderPost {
         Lights lights;
     };
 
-    void init(const struct Setup *setup);
+    void init(const Setup setup);
     void add_group(const char *name);
     static void prep();
     void draw(const RenderPost::Drawlist &drawlist);

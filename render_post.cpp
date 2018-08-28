@@ -3,11 +3,11 @@
 #define DIFFUSE_MAP_TEXTURE_INDEX 1
 #define SHADOW_MAP_TEXTURE_INDEX 2
 
-void RenderPost::init(const RenderPost::Setup *setup)
+void RenderPost::init(const RenderPost::Setup setup)
 {
     program = load_program("render_post.vert", "render_post.frag");
-    uv_scale = setup->uv_scale;
-    material = setup->material;
+    uv_scale = setup.uv_scale;
+    material = setup.material;
     assert(program);
 
     vertex.init(program, "vertex", 4);
@@ -36,15 +36,15 @@ void RenderPost::init(const RenderPost::Setup *setup)
     visibility_buffer.init({}, true);
     uv_offset_buffer.init({}, true);
 
-    for (const auto &pair : setup->mesh->groups) {
+    for (const auto &pair : setup.mesh->groups) {
         PerGroupData d;
         d.vao.init();
         d.vao.bind();
         d.count = pair.second.count;
 
-        vertex.point_to(setup->mesh->vertex_buffer);
-        normal.point_to(setup->mesh->normal_buffer);
-        uv.point_to(setup->mesh->uv_buffer);
+        vertex.point_to(setup.mesh->vertex_buffer);
+        normal.point_to(setup.mesh->normal_buffer);
+        uv.point_to(setup.mesh->uv_buffer);
         position.point_to(position_buffer);
         visibility.point_to(visibility_buffer);
         uv_offset.point_to(uv_offset_buffer);
@@ -64,6 +64,10 @@ void RenderPost::draw(const RenderPost::Drawlist &drawlist)
     check_gl_error();
 
     glEnable(GL_DEPTH_TEST);
+    if (drawlist.use_alpha) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
     glDepthFunc(GL_LESS);
     glUseProgram(program);
     material->activate(DIFFUSE_MAP_TEXTURE_INDEX);
@@ -119,5 +123,8 @@ void RenderPost::draw(const RenderPost::Drawlist &drawlist)
 
     //VertexArrayObject::unbind();
 
+    if (drawlist.use_alpha) {
+        glEnable(GL_BLEND);
+    }
     check_gl_error();
 }

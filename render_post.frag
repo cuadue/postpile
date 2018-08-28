@@ -15,7 +15,7 @@ in float elevation;
 //in vec4 shadow_coord;
 in vec2 uv_offset_frag;
 
-out vec3 color;
+out vec4 color;
 
 const float ambient_min = 0.2;
 const float ambient_max = 0.4;
@@ -59,6 +59,16 @@ vec2 tile2(vec2 v)
 uniform mat4 view_matrix;
 void main()
 {
+    vec2 tiled_uv = tile2(uv) / uv_scale + uv_offset_frag;
+    // Blender convention: origin is the bottom of the image
+    tiled_uv.y = 1 - tiled_uv.y;
+
+    vec4 tex_value = texture(diffuse_map, tiled_uv);
+
+    if (tex_value.a < 1e-3) {
+        discard;
+    }
+
     float fadeout = 1 + elevation / 2;
     vec3 normal = normalize(normal_frag);
 
@@ -71,10 +81,9 @@ void main()
     float shadow = 1; //shadow_intensity();
     light = mix(clamp(shadow * light, 0, 1), vec3(1, 1, 1),  ambient());
 
-    vec2 tiled_uv = tile2(uv) / uv_scale + uv_offset_frag;
-
-    color = texture(diffuse_map, tiled_uv).rgb *
-            clamp(fadeout, 0, 1) *
-            light *
-            clamp(visibility_frag, 0, 1);
+    vec3 rgb = tex_value.rgb *
+               clamp(fadeout, 0, 1) *
+               light *
+               clamp(visibility_frag, 0, 1);
+    color = vec4(rgb, tex_value.a);
 }

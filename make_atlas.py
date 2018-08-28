@@ -39,4 +39,5 @@ with open(almanac_path, 'w') as almanac:
         assert result.mode == region.mode
         result.paste(region, dest_box)
 
-result.save(dest, 'png')
+# Blender convention: origin is the bottom of the image
+result.transpose(Image.FLIP_TOP_BOTTOM).save(dest, 'png')

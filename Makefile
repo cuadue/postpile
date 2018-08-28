@@ -64,3 +64,4 @@ clean:
 	rm -f postpile
 	rm -rf tex
 	rm -rf Postpile.app
+	rm -f hex_atlas.png hex_atlas.png.almanac

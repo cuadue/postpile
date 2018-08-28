@@ -41,7 +41,7 @@ extern "C" {
 #define VIEW_MAX_PITCH (M_PI/2.01)
 #define VIEW_MIN_PITCH (M_PI/5.0)
 #define VIEW_MAX_DISTANCE 100
-#define VIEW_MIN_DISTANCE 25
+#define VIEW_MIN_DISTANCE 5
 #define ZOOM_FACTOR 1.05
 
 using namespace std;
@@ -53,7 +53,7 @@ mat4 proj_matrix;
 mat4 view_matrix;
 vec2 mouse;
 TexAtlas hex_textures;
-gl3_material cursor_mtl, green, brown;
+gl3_material cursor_mtl, pine_material;
 //LmDebug lmdebug;
 int debug_show_lightmap = 0;
 int enable_shadows = 1;
@@ -67,6 +67,7 @@ struct Meshes {
 };
 std::vector<Triangle> post_triangles;
 RenderPost render_post;
+RenderPost render_pine;
 
 // scipy.signal.firwin(20, 0.01)
 const vector<float> view_filter_coeffs {
@@ -223,7 +224,7 @@ vector<glm::mat4> pines_on_tile(HexCoord<int> coord)
         return ((int)(f * seed) % m) / (float)m;
     };
 
-    int count = 6 * mod(elevation, 734877, 6);
+    int count = 2 * mod(elevation, 734877, 6);
 
     vector<glm::mat4> ret;
     for (int i = 0; i < count; i++) {
@@ -425,13 +426,14 @@ void draw()
         hex_drawlist.lights.put(sun);
     }
 
-    //Drawlist pine_drawlist = hex_drawlist;
-    //pine_drawlist.mesh = &meshes.pine_mesh;
+    RenderPost::Drawlist pine_drawlist = hex_drawlist;
+    pine_drawlist.use_alpha = true;
 
     draw_tile_count = 0;
     //HexCoord<int> cursor = hex_under_mouse();
     auto& side_items = hex_drawlist.grouped_items["side"];
     auto& top_items = hex_drawlist.grouped_items["hex_top"];
+    auto& pine_items = pine_drawlist.grouped_items["all"];
 
     std::array<glm::vec2, CHAR_MAX> top_offsets;
     std::array<glm::vec2, CHAR_MAX> side_offsets;
@@ -470,23 +472,14 @@ void draw()
         top_items.push_back(top);
         side_items.push_back(side);
 
-        /*
         for (const glm::mat4 mat : pines_on_tile(coord)) {
-            Drawlist::Item canopy;
-            Drawlist::Item trunk;
+            RenderPost::Drawlist::Item canopy;
             canopy.visibility = top.visibility;
-            trunk.visibility = top.visibility;
-            canopy.material = &green;
+            canopy.uv_offset = {0, 0};
+            canopy.position = position + vec3(vec4(1) * mat);
 
-            canopy.model_matrix = mm * mat;
-            trunk = canopy; trunk.material = &brown;
-            trunk.group = "trunk";
-            canopy.group = "canopy";
-
-            //pine_drawlist.items.push_back(canopy);
-            //pine_drawlist.items.push_back(trunk);
+            pine_items.push_back(canopy);
         }
-        */
 
         draw_tile_count++;
     }
@@ -518,7 +511,7 @@ void draw()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     render_post.draw(hex_drawlist);
-    //render_obj.draw(pine_drawlist);
+    render_pine.draw(pine_drawlist);
 }
 
 /*
@@ -546,8 +539,11 @@ void resize()
 
 void freshen_tile_cache(const tile_generator &tile_gen)
 {
-    for (int dq = -HEX_EXTENT-1; dq <= HEX_EXTENT+1; dq++) {
-        for (int dr = -HEX_EXTENT-1; dr <= HEX_EXTENT+1; dr++) {
+    int n = HEX_EXTENT + 1;
+    for (int dq = -n; dq <= n; dq++) {
+        int start = std::max(-n, -n-dq);
+        int stop = std::min(n, -dq+n);
+        for (int dr = start; dr <= stop; dr++) {
             HexCoord<int> coord;
             coord.q = view.center.q + dq;
             coord.r = view.center.r + dr;
@@ -693,14 +689,19 @@ int main()
 
     hex_textures.init("hex_atlas.png", "hex_atlas.png.almanac");
     cursor_mtl = gl3_material::solid_color({1, 0, 0});
-    green = gl3_material::solid_color({.1, .7, .2});
-    brown = gl3_material::solid_color({.6, .3, .2});
+    pine_material.init("pine_diffuse.png");
 
-    RenderPost::Setup post_setup;
-    post_setup.mesh = &meshes.post_mesh;
-    post_setup.material = &hex_textures.material;
-    post_setup.uv_scale = hex_textures.scale;
-    render_post.init(&post_setup);
+    render_post.init(RenderPost::Setup {
+        .mesh = &meshes.post_mesh,
+        .material = &hex_textures.material,
+        .uv_scale = (float)hex_textures.scale
+    });
+
+    render_pine.init(RenderPost::Setup {
+        .mesh = &meshes.pine_mesh,
+        .material = &pine_material,
+        .uv_scale = 1
+    });
 
     meshes.cursor_mesh.init(wf_mesh_from_file("cursor.obj"));
     //meshes.lmdebug_mesh.init(wf_mesh_from_file("lmdebug.obj"));
