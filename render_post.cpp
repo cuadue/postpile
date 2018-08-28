@@ -13,8 +13,8 @@ void RenderPost::init(const RenderPost::Setup setup)
     vertex.init(program, "vertex", 4);
     normal.init(program, "normal", 3);
     uv.init(program, "vertex_uv", 2);
-    position.init(program, "position", 3);
-    position.instanced = true;
+    model_matrix.init(program, "model_matrix");
+    model_matrix.instanced = true;
     visibility.init(program, "visibility", 1);
     visibility.instanced = true;
     uv_offset.init(program, "uv_offset", 2);
@@ -32,7 +32,7 @@ void RenderPost::init(const RenderPost::Setup setup)
     light_vec.init(program, "light_vec");
     light_color.init(program, "light_color");
 
-    position_buffer.init({}, true);
+    model_matrix_buffer.init({}, true);
     visibility_buffer.init({}, true);
     uv_offset_buffer.init({}, true);
 
@@ -45,7 +45,7 @@ void RenderPost::init(const RenderPost::Setup setup)
         vertex.point_to(setup.mesh->vertex_buffer);
         normal.point_to(setup.mesh->normal_buffer);
         uv.point_to(setup.mesh->uv_buffer);
-        position.point_to(position_buffer);
+        model_matrix.point_to(model_matrix_buffer);
         visibility.point_to(visibility_buffer);
         uv_offset.point_to(uv_offset_buffer);
 
@@ -90,17 +90,17 @@ void RenderPost::draw(const RenderPost::Drawlist &drawlist)
     projection_matrix.set(drawlist.projection);
     shader_uv_scale.set(uv_scale);
 
-    std::vector<glm::vec3> positions;
+    std::vector<glm::mat4> model_matrices;
     std::vector<float> visibilities;
     for (const auto &pair : drawlist.grouped_items) {
         for (const auto &item : pair.second) {
-            positions.push_back(item.position);
+            model_matrices.push_back(item.model_matrix);
             visibilities.push_back(item.visibility);
         }
         break;
     }
 
-    position_buffer.buffer_data_dynamic(positions);
+    model_matrix_buffer.buffer_data_dynamic(model_matrices);
     visibility_buffer.buffer_data_dynamic(visibilities);
 
     for (const auto &pair : drawlist.grouped_items) {
@@ -118,7 +118,7 @@ void RenderPost::draw(const RenderPost::Drawlist &drawlist)
         const auto &render_group = groups[pair.first];
         render_group.vao.bind();
         render_group.indices->bind_elements();
-        render_group.indices->draw_instanced(positions.size());
+        render_group.indices->draw_instanced(model_matrices.size());
     }
 
     //VertexArrayObject::unbind();

@@ -20,7 +20,7 @@ struct RenderPost {
 
         struct Item {
             glm::vec2 uv_offset;
-            glm::vec3 position;
+            glm::mat4 model_matrix;
             float visibility;
         };
 
@@ -46,7 +46,7 @@ private:
     VertexAttribArray vertex;
     VertexAttribArray normal;
     VertexAttribArray uv;
-    VertexAttribArray position;
+    VertexAttribArrayMat4 model_matrix;
     VertexAttribArray visibility;
     VertexAttribArray uv_offset;
 
@@ -62,7 +62,7 @@ private:
     UniformVec3Vec light_vec;
     UniformVec3Vec light_color;
 
-    ArrayBuffer<glm::vec3> position_buffer;
+    ArrayBuffer<glm::mat4> model_matrix_buffer;
     ArrayBuffer<float> visibility_buffer;
     ArrayBuffer<glm::vec2> uv_offset_buffer;
 

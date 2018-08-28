@@ -27,6 +27,7 @@ OBJS += atlas.o
 
 hex_atlas.png:
 	python make_atlas.py $@ 2048 img/*.jpg
+	convert -sigmoidal-contrast '4,50%' $@ $@
 
 postpile.o: postpile.cpp fir_filter.hpp
 %.o: %.cpp %.hpp

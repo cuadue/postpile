@@ -10,6 +10,7 @@ in vec2 vertex_uv;
 in float visibility;
 in vec3 position;
 in vec2 uv_offset;
+in mat4 model_matrix;
 
 out vec2 uv;
 out float elevation;
@@ -20,9 +21,6 @@ out vec2 uv_offset_frag;
 
 void main()
 {
-    mat4 model_matrix = mat4(1);
-    model_matrix[3].xyz = position;
-
     mat4 MVP = projection_matrix * view_matrix * model_matrix;
     mat3 normal_matrix = mat3(transpose(inverse(view_matrix * model_matrix)));
     //mat4 shadow_MVP = shadow_view_projection_matrix * model_matrix;

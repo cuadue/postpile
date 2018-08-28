@@ -8,3 +8,4 @@ Postpile.app
 hex_atlas.png
 hex_atlas.png.almanac
 *.trace
+callgrind.out.*

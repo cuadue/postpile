@@ -224,14 +224,14 @@ vector<glm::mat4> pines_on_tile(HexCoord<int> coord)
         return ((int)(f * seed) % m) / (float)m;
     };
 
-    int count = 2 * mod(elevation, 734877, 6);
+    int count = 3 * mod(elevation, 734877, 7);
 
     vector<glm::mat4> ret;
     for (int i = 0; i < count; i++) {
         float e = elevation * i;
         float angle = 2 * M_PI * mod(e, 34989237, 99391);
         float dist = 0.3 + 0.5 * mod(e, 8476397, 17821);
-        float s = 0.1 + 0.7 * mod(e, 34249, 948);
+        float s = 0.3 + 0.7 * mod(e, 34249, 948);
         glm::mat4 scale = glm::scale(glm::vec3(s, s, s));
         glm::mat4 xlate = glm::translate(glm::vec3(
             dist * cos(angle), dist * sin(angle), 0));
@@ -447,14 +447,15 @@ void draw()
     for (const HexCoord<int>& coord : visible_hexes()) {
         RenderPost::Drawlist::Item top, side;
         vec3 position = hex_position(coord);
+        mat4 model_matrix = glm::translate(mat4(1), position);
 
         char top_tile = hex_tile(top_tileset, coord);
         top.uv_offset = top_offsets[top_tile];
-        top.position = position;
+        top.model_matrix = model_matrix;
 
         char side_tile = hex_tile(side_tileset, coord);
         side.uv_offset = side_offsets[side_tile];
-        side.position = position;
+        side.model_matrix = model_matrix;
 
         double distance = hex_distance(
             HexCoord<double>::from(coord),
@@ -476,7 +477,7 @@ void draw()
             RenderPost::Drawlist::Item canopy;
             canopy.visibility = top.visibility;
             canopy.uv_offset = {0, 0};
-            canopy.position = position + vec3(vec4(1) * mat);
+            canopy.model_matrix = model_matrix * mat;
 
             pine_items.push_back(canopy);
         }
