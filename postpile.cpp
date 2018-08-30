@@ -57,7 +57,8 @@ gl3_material cursor_mtl, pine_material;
 //LmDebug lmdebug;
 int debug_show_lightmap = 0;
 int enable_shadows = 1;
-//Depthmap depthmap;
+Framebuffer depth_fb;
+Depthmap depthmap;
 
 struct Meshes {
     gl3_mesh post_mesh;
@@ -485,9 +486,14 @@ void draw()
         draw_tile_count++;
     }
 
-    /*
     if (enable_shadows) {
-        depthmap.begin();
+        depth_fb.clear();
+        Depthmap::Drawlist top, side;
+        for (const auto &item : top_items) {
+            Depthmap::Drawlist::Item dm_item;
+            dm_item.model_matrix = item.model_matrix;
+        }
+
         // TODO get rid of this offset
         depthmap.render(hex_drawlist,
             hex_model_matrix(view.center) *
@@ -502,7 +508,6 @@ void draw()
         // This makes global self shadows on the trees. Doesn't look great...
         //pine_drawlist.shadow_view_projection = depthmap.view_projection;
     }
-    */
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     int w = 0, h = 0;
@@ -678,7 +683,8 @@ int main()
     //lmdebug.init("lmdebug.vert", "lmdebug.frag");
     check_gl_error();
 
-    //depthmap.init("depthmap.vert", "depthmap.frag");
+    depth_fb.init();
+    depthmap.init();
     check_gl_error();
 
     Meshes meshes;

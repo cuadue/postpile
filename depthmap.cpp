@@ -8,11 +8,32 @@ extern "C" {
 #include "gl3.hpp"
 #include "depthmap.hpp"
 
-void Depthmap::init(const char *vert_file, const char *frag_file)
+void Framebuffer::init()
+{
+
+
+void Framebuffer::clear()
+{
+    bind();
+    glViewport(0, 0, texture_size, texture_size);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    unbind();
+}
+
+void Framebuffer::unbind()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+}
+
+void Framebuffer::unbind()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Depthmap::init()
 {
     check_gl_error();
-    program = load_program(vert_file, frag_file);
-    check_gl_error();
+    program = load_program("depthmap.vert", "depthmap.frag");
 
     vertex.init(program, "vertex", 4);
     shader_view_projection.init(program, "view_projection");
@@ -21,16 +42,24 @@ void Depthmap::init(const char *vert_file, const char *frag_file)
 
     model_matrix_buffer.init({}, true);
 
+    vao.init();
+    vao.bind();
+    vertex.point_to(drawlist.mesh->vertex_buffer);
+    model_matrix.point_to(model_matrix_buffer);
+    vao.unbind();
+}
+
+void Framebuffer::init()
+{
     glGenFramebuffers(1, &framebuffer);
     glGenTextures(1, &texture_target);
 
     int size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &size);
     resize_texture(size >> 2);
-
 }
 
-void Depthmap::resize_texture(int size)
+void Framebuffer::resize_texture(int size)
 {
     int max_size;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_size);
@@ -65,31 +94,26 @@ void Depthmap::resize_texture(int size)
     fprintf(stderr, "Shadow map texture size: %d\n", texture_size);
 }
 
-void Depthmap::shrink_texture()
+void Framebuffer::shrink_texture()
 {
     resize_texture(texture_size / 2);
 }
 
-void Depthmap::grow_texture()
+void Framebuffer::grow_texture()
 {
     resize_texture(texture_size * 2);
 }
 
-void Depthmap::begin()
+void Depthmap::render(const Drawlist &drawlist)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-    glViewport(0, 0, texture_size, texture_size);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
+    if (!drawlist.lights.direction.size()) return;
 
-void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
-{
-    CHECK_DRAWLIST(drawlist);
     glUseProgram(program);
     check_gl_error();
     glDrawBuffer(GL_NONE);
+    drawlist.fb.bind();
+    vao.bind();
 
-    if (!drawlist.lights.direction.size()) return;
     glm::vec3 light_direction = drawlist.lights.direction[0];
     check_gl_error();
 
@@ -100,9 +124,6 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
     shader_view_projection.set(view_projection);
 
     check_gl_error();
-
-    drawlist.mesh->activate();
-    vertex.activate(drawlist.mesh->vertex_buffer);
 
     std::map<std::string, std::vector<glm::mat4>> instances;
 
@@ -117,6 +138,6 @@ void Depthmap::render(const Drawlist &drawlist, glm::mat4 offset)
 
     }
 
-    vertex.disable(drawlist.mesh->vertex_buffer);
+    drawlist.fb.unbind();
     check_gl_error();
 }

@@ -30,8 +30,6 @@ struct RenderPost {
     };
 
     void init(const Setup setup);
-    void add_group(const char *name);
-    static void prep();
     void draw(const RenderPost::Drawlist &drawlist);
 
 private:
