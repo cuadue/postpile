@@ -36,34 +36,21 @@ float ambient()
     // as the angle of incidence of the shadowing light gets
     // further from the zenith, increase the ambient lighting so
     // that during the darkest hours, you can still see.
-    if (num_lights == 0) {
-        return ambient_max;
-    }
     float x = 1.1 - dot(normalize(light_vec[0]), vec3(0, 0, 1));
     float clamped = clamp(x, 0, 1);
     float spread = ambient_max - ambient_min;
     return ambient_min + spread * clamped;
 }
 
-float tile(float x)
-{
-    float s = sign(x);
-    return 1 - fract(1 - s * fract(s * x));
-}
-
-vec2 tile2(vec2 v)
-{
-    return vec2(tile(v.x), tile(v.y));
-}
-
 uniform mat4 view_matrix;
 void main()
 {
-    vec2 tiled_uv = tile2(uv) / uv_scale + uv_offset_frag;
+    vec2 scaled_uv = uv / uv_scale;
+    vec2 tiled_uv = fract(uv) / uv_scale + uv_offset_frag;
     // Blender convention: origin is the bottom of the image
     tiled_uv.y = 1 - tiled_uv.y;
 
-    vec4 tex_value = texture(diffuse_map, tiled_uv);
+    vec4 tex_value = textureGrad(diffuse_map, tiled_uv, dFdx(scaled_uv), dFdy(scaled_uv));
 
     if (tex_value.a < 1e-3) {
         discard;
