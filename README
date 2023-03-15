@@ -1,4 +1,6 @@
-A doodle inspired by RPGs and hexagonal games. The controls are:
+A doodle for learning OpenGL, GLSL, model loading, and the like.
+
+The controls are:
 
                   forward
 
@@ -30,16 +32,8 @@ Then:
 
     $ make && ./postpile
 
-On mac you need the XCode and the command line utilities. Apple doesn't make
-this too easy because they want you to use their IDE with the associated
-platform lockin. Start by installing xcode from the app store, then to get
-the command line utilities, (it changes over time, but for now), visit:
-
-    https://developer.apple.com/download/more/
-
-and search for "command line". Install the appropriate version.
-
-The dependencies can be installed with homebrew (http://brew.sh) like:
+On Mac you need the XCode and the command line utilities. The dependencies can
+be installed with homebrew <http://brew.sh> like:
 
     $ brew install glm glew glfw
 
